@@ -53,6 +53,7 @@ Ask the user: Option A (simple single-project) or Option B (full CI/CD pipeline 
 ## Operational Guidelines for Coding Agents
 
 - **Specification & Test Synchronization Rule**: Whenever the codebase is changed, make sure to update the applicable specs files and add corresponding test/eval cases in tandem. Never allow the code to diverge from the specifications or tests.
+- **Progress Tracking Rule**: Whenever changes are made to the codebase or new features are introduced, update the progress tracker file [progress.md](file:///home/kejia/gauss/progress.md) to check off finished steps or add new planned steps accordingly.
 - **Code preservation**: Only modify code directly targeted by the user's request. Preserve all surrounding code, config values (e.g., `model`), comments, and formatting.
 - **NEVER change the model** unless explicitly asked.
 - **Model 404 errors**: Fix `GOOGLE_CLOUD_LOCATION` (e.g., `global` instead of `us-east1`), not the model name.
