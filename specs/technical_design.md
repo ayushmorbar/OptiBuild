@@ -1,27 +1,38 @@
 # Technical Design: 5dgai - Optimisation Agent
 
 ## 1. System Architecture
-The system follows a prototype-first ADK design:
+The system follows a modular, multi-agent ADK design utilizing a custom **MCP (Model Context Protocol) Server** for deterministic calculations:
 
 ```
-                  +--------------------+
-                  |    User Request    |
-                  +---------+----------+
-                            |
-                            v
-                  +---------+----------+
-                  |  Optimization      |
-                  |  Orchestrator      |
-                  |    (ADK Agent)     |
-                  +---------+----------+
-                            |
-             +--------------+--------------+
-             |                             |
-             v                             v
-   +---------+----------+        +---------+----------+
-   |   Component DB     |        | Optimization Solver|
-   |      (JSON)        |        |   (Constraint/LP)  |
-   +--------------------+        +--------------------+
+                     +--------------------+
+                     |    User Request    |
+                     +---------+----------+
+                               |
+                               v
+                     +---------+----------+
+                     |   Concierge Agent  |
+                     |    (ADK Agent)     |
+                     +---------+----------+
+                               |
+                               | (A2A Delegation)
+                               v
+                     +---------+----------+
+                     |  Solver Specialist |
+                     |   (Sub-Agent)      |
+                     +---------+----------+
+                               |
+                               | (McpToolset Stdio Client)
+                               v
+                     +---------+----------+
+                     |     MCP Server     |
+                     |  (app/mcp_server.py) |
+                     +---------+----------+
+                               |
+                               v
+                     +---------+----------+
+                     |  Component Solver  |
+                     |  & JSON Database   |
+                     +--------------------+
 ```
 
 ## 2. Workflow Graph
@@ -46,53 +57,8 @@ graph TD
 ## 3. Components Database Schema (Local Prototype)
 We will maintain a JSON-based database (`app/data/components.json`) containing component details.
 
-```json
-{
-  "cpus": [
-    {
-      "id": "cpu_ryzen7_7700",
-      "name": "AMD Ryzen 7 7700",
-      "price": 200.00,
-      "brand": "AMD",
-      "specs": {
-        "socket": "AM5",
-        "power_draw_w": 65
-      },
-      "link": "https://example.com/amd-ryzen-7-7700"
-    }
-  ],
-  "gpus": [
-    {
-      "id": "gpu_rtx3060",
-      "name": "GeForce RTX 3060",
-      "price": 390.00,
-      "brand": "NVIDIA",
-      "specs": {
-        "vram_gb": 12,
-        "power_draw_w": 170
-      },
-      "link": "https://example.com/rtx-3060"
-    }
-  ],
-  "motherboards": [
-    {
-      "id": "mb_msi_b850",
-      "name": "MSI B850",
-      "price": 170.00,
-      "brand": "MSI",
-      "specs": {
-        "socket": "AM5",
-        "form_factor": "ATX"
-      },
-      "link": "https://example.com/msi-b850"
-    }
-  ],
-  "ram": [...],
-  "storage": [...],
-  "psus": [...],
-  "cases": [...]
-}
-```
+The modular database schema defining all component types and required specification fields is documented in YAML format at:
+* **[specs/components_schema.yaml](file:///home/kejia/gauss/specs/components_schema.yaml)**
 
 ## 4. Compatibility Rules (Deterministic Checkers)
 Compatibility verification rules to be implemented in Python:
@@ -104,18 +70,15 @@ Compatibility verification rules to be implemented in Python:
 ## 5. ADK Agent & Tools Definition
 The agent will be structured using Vertex AI ADK.
 
-### Agent Definition (`app/agent.py`)
-- **System Prompt**: Defines the persona (Product Assembly Optimization Expert) and explains the process (collect requirements, invoke tools to search components, formulate compatible options, present results).
-- **Tools**:
-  - `get_components`: Retrieve a list of components matching category or brand.
-  - `find_optimal_builds`: A deterministic solver tool that runs a search/optimization algorithm over the components database to generate 1-3 compatible builds maximizing performance/efficiency for a given budget and brand constraints.
+### Concierge Agent (`app/agent.py`)
+- **System Prompt**: Acts as the user-facing assistant. It parses requirements, enforces security rules (refusing unsafe/illegal queries), interactively requests missing requirements, and delegates solving to the `SolverSpecialistAgent` via A2A protocol.
 
-### Deterministic Solver Tool (`app/tools.py`)
-- This tool implements the mathematical/search optimization logic.
-- Instead of the LLM picking individual components one-by-one and guessing compatibility, the LLM calls `find_optimal_builds(budget, preferences, target_use_case)`.
-- The tool:
-  1. Filters components based on user preferences (e.g., brand, socket type).
-  2. Generates all valid combinations of CPU + Motherboard + GPU + RAM + Storage + PSU + Case.
-  3. Checks compatibility rules for each combination.
-  4. Discards combinations exceeding `budget`.
-  5. Ranks valid combinations based on a simple heuristic score (e.g., higher performance CPU/GPU scores, higher RAM capacity, lowest cost) and returns the top 3 configurations.
+### Solver Specialist Agent
+- **System Prompt**: Acts as the backend specialist for running calculations. It connects to the local MCP server over stdio and registers the MCP tools.
+- **Tools**: Loads tool definitions dynamically from the local MCP server process (`app/mcp_server.py`) using `McpToolset`.
+
+### MCP Server (`app/mcp_server.py`)
+- Built using the Python `mcp` SDK (FastMCP).
+- **Tools**:
+  - `find_optimal_builds`: Exposes the deterministic optimization solver tool over Stdio transport.
+- **Data**: Interacts directly with the components database JSON.

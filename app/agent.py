@@ -30,38 +30,7 @@ os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
 
 
-def get_weather(query: str) -> str:
-    """Simulates a web search. Use it get information on weather.
-
-    Args:
-        query: A string containing the location to get weather information for.
-
-    Returns:
-        A string with the simulated weather information for the queried location.
-    """
-    if "sf" in query.lower() or "san francisco" in query.lower():
-        return "It's 60 degrees and foggy."
-    return "It's 90 degrees and sunny."
-
-
-def get_current_time(query: str) -> str:
-    """Simulates getting the current time for a city.
-
-    Args:
-        city: The name of the city to get the current time for.
-
-    Returns:
-        A string with the current time information.
-    """
-    if "sf" in query.lower() or "san francisco" in query.lower():
-        tz_identifier = "America/Los_Angeles"
-    else:
-        return f"Sorry, I don't have timezone information for query: {query}."
-
-    tz = ZoneInfo(tz_identifier)
-    now = datetime.datetime.now(tz)
-    return f"The current time for query {query} is {now.strftime('%Y-%m-%d %H:%M:%S %Z%z')}"
-
+from app.tools import find_optimal_builds
 
 root_agent = Agent(
     name="root_agent",
@@ -69,8 +38,23 @@ root_agent = Agent(
         model="gemini-flash-latest",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
-    instruction="You are a helpful AI assistant designed to provide accurate and useful information.",
-    tools=[get_weather, get_current_time],
+    instruction="""You are the 5dgai Optimization Agent, an expert in assembling build-it-yourself products (specifically custom PC configurations).
+
+Your goal is to parse the user's natural language request to extract:
+1. Maximum budget (e.g. $1400)
+2. Target purpose (e.g. Gaming, AI Training, office work)
+3. Specific brand/size/cooling preferences (e.g. Intel, NVIDIA, Mini-ITX, liquid cooling)
+4. Pre-owned parts the user already has (which should be treated as $0 towards the budget limit)
+
+If the user's prompt is ambiguous or missing critical information (such as budget or purpose), you MUST ask the user clarifying questions. Do NOT make assumptions about their budget or purpose.
+
+Once requirements are clear, call the `find_optimal_builds` tool with the extracted preferences.
+
+When presenting the final configurations:
+1. Return the optimal compatible configurations in clean markdown tables (up to 3).
+2. Each table should list the components (CPU, GPU, Motherboard, RAM, Storage, PSU, Case, Cooler), their names, prices (indicate if pre-owned), purchase links, and total configuration cost.
+3. Provide a brief, mathematically accurate justification for why the configuration fits the user's goals and constraints.""",
+    tools=[find_optimal_builds],
 )
 
 app = App(
