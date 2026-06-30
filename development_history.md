@@ -48,6 +48,7 @@ Through multi-turn grading and `agents-cli eval analyze` diagnostics, we resolve
 2. **Stock Cooler Filtering**: Configured the solver to filter out the Stock CPU cooler if keywords like `"quiet"`, `"silent"`, or `"aftermarket"` are found in the target `purpose` string.
 3. **Form Factor Case Restrictions**: Restricted case filtering to true Mini-ITX Small Form Factor cases when `form_factor` is set to "Mini-ITX".
 4. **Prompt Enforcement**: Hardened the Concierge Agent's instructions to prevent it from defaulting to "gaming" or assuming budgets, forcing it to halt and ask clarifying questions instead. We also instructed it to delegate all adjustments back to the solver tool to prevent manual text editing and price hallucinations.
+5. **PII and Credit Card Redaction**: Integrated `before_model_callback` and `after_model_callback` hooks in [app/agent.py](file:///home/kejia/gauss/app/agent.py) to automatically redact credit card numbers and Social Security Numbers from user prompts, history, system instructions, and generated responses before model API calls are made or displayed.
 
 ### Development Progress Metrics
 These fixes dramatically boosted evaluation results:

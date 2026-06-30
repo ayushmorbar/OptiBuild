@@ -40,11 +40,12 @@ The agent controls the interaction loop and hands off the combinatorial optimiza
 
 ```mermaid
 graph TD
-    START([User Prompt]) --> ParseInput[Parse requirements: budget, purpose, preferences]
+    START([User Prompt]) --> RedactPII[Redact PII & Credit Cards]
+    RedactPII --> ParseInput[Parse requirements: budget, purpose, preferences]
     ParseInput --> CheckCompleteness{Has Budget & Purpose?}
     CheckCompleteness -->|No| Clarify[Ask user for clarification]
     Clarify --> WaitUser([Wait for user response])
-    WaitUser --> ParseInput
+    WaitUser --> RedactPII
     CheckCompleteness -->|Yes| Solve[Run Deterministic Solver / Optimization]
     Solve --> VerifyCompatibility{Check compatibility & budget}
     VerifyCompatibility -->|Valid Candidates Found| FormulateConfig[Format configs: name, price, link, total]
