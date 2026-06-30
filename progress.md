@@ -37,7 +37,9 @@ This file logs our progress as we build, evaluate, and iterate on the 5dgai Opti
 - [x] Analyze multi-turn failure modes and iterate on solver filtering constraints and prompt rules
 - [x] Achieve multi-turn task success score of **89.24%** and tool use quality score of **94.91%**
 
+<!--
 ## Phase 5: Deployment & Publishing
 - [ ] Request user approval for deployment
 - [ ] Deploy to dev target environment (Agent Runtime or Cloud Run)
 - [ ] Validate deployed agent behavior and configure observability/monitoring
+-->
