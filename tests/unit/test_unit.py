@@ -67,3 +67,12 @@ def test_full_build_compatibility():
         psu=psu_600,
         case=case_atx
     ) is True
+
+from app.agent import sanitize_budget
+
+def test_sanitize_budget():
+    assert sanitize_budget("$1400") == 1400.0
+    assert sanitize_budget("1200.50 USD") == 1200.50
+    assert sanitize_budget("1500") == 1500.0
+    assert sanitize_budget("invalid") == 0.0
+    assert sanitize_budget("") == 0.0

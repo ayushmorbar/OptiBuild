@@ -127,12 +127,42 @@ def find_optimal_builds(
         filtered["ram"] = [pre_owned_by_category["ram"]]
     else:
         filtered["ram"] = data["ram"]
+        purpose_lower = purpose.lower()
+        ram_capacity_limit = None
+        if "32gb" in purpose_lower or "32 gb" in purpose_lower:
+            ram_capacity_limit = 32
+        elif "16gb" in purpose_lower or "16 gb" in purpose_lower:
+            ram_capacity_limit = 16
+        elif "8gb" in purpose_lower or "8 gb" in purpose_lower:
+            ram_capacity_limit = 8
+            
+        if ram_capacity_limit:
+            filtered["ram"] = [r for r in filtered["ram"] if r["specs"]["capacity_gb"] >= ram_capacity_limit]
 
     # Storage
     if "storage" in pre_owned_by_category:
         filtered["storage"] = [pre_owned_by_category["storage"]]
     else:
         filtered["storage"] = data["storage"]
+        purpose_lower = purpose.lower()
+        storage_capacity_limit = None
+        if "2tb" in purpose_lower or "2 tb" in purpose_lower:
+            storage_capacity_limit = 2000
+        elif "1tb" in purpose_lower or "1 tb" in purpose_lower:
+            storage_capacity_limit = 1000
+        elif "500gb" in purpose_lower or "500 gb" in purpose_lower:
+            storage_capacity_limit = 500
+        elif "240gb" in purpose_lower or "240 gb" in purpose_lower:
+            storage_capacity_limit = 240
+
+        if storage_capacity_limit:
+            filtered["storage"] = [s for s in filtered["storage"] if s["specs"]["capacity_gb"] >= storage_capacity_limit]
+
+        # Parse SSD/HDD preference
+        if "ssd" in purpose_lower:
+            filtered["storage"] = [s for s in filtered["storage"] if s["specs"]["type"].upper() == "SSD"]
+        elif "hdd" in purpose_lower:
+            filtered["storage"] = [s for s in filtered["storage"] if s["specs"]["type"].upper() == "HDD"]
 
     # PSUs
     if "psus" in pre_owned_by_category:
@@ -147,12 +177,20 @@ def find_optimal_builds(
         filtered["cases"] = data["cases"]
         if form_factor:
             filtered["cases"] = [c for c in filtered["cases"] if form_factor.lower() in [f.lower() for f in c["specs"]["supported_form_factors"]]]
+            if form_factor.lower() == "mini-itx":
+                # Prefer true Mini-ITX SFF cases (cases that only support Mini-ITX) if available
+                true_mini_itx = [c for c in filtered["cases"] if len(c["specs"]["supported_form_factors"]) == 1 and c["specs"]["supported_form_factors"][0].lower() == "mini-itx"]
+                if true_mini_itx:
+                    filtered["cases"] = true_mini_itx
 
     # Coolers
     if "coolers" in pre_owned_by_category:
         filtered["coolers"] = [pre_owned_by_category["coolers"]]
     else:
         filtered["coolers"] = data["coolers"]
+        purpose_lower = purpose.lower()
+        if any(kw in purpose_lower for kw in ["better cooler", "quiet", "silent", "aftermarket", "dedicated", "upgrade", "paid", "high-performance cooler"]):
+            filtered["coolers"] = [c for c in filtered["coolers"] if c["id"] != "cooler_stock"]
         if cooling_type:
             filtered["coolers"] = [c for c in filtered["coolers"] if c["specs"]["type"].lower() == cooling_type.lower()]
 
@@ -197,7 +235,17 @@ def find_optimal_builds(
         }
         
         for cat_name, part in parts_list.items():
-            if cat_name in pre_owned_by_category:
+            db_cat = {
+                "cpu": "cpus",
+                "gpu": "gpus",
+                "motherboard": "motherboards",
+                "ram": "ram",
+                "storage": "storage",
+                "psu": "psus",
+                "case": "cases",
+                "cooler": "coolers"
+            }.get(cat_name, cat_name)
+            if db_cat in pre_owned_by_category:
                 # Pre-owned
                 build_cost += 0.0
             else:

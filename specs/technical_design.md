@@ -82,3 +82,16 @@ The agent will be structured using Vertex AI ADK.
 - **Tools**:
   - `find_optimal_builds`: Exposes the deterministic optimization solver tool over Stdio transport.
 - **Data**: Interacts directly with the components database JSON.
+
+## 6. Testing & Evaluation
+
+### Unit & Integration Testing
+* Tested using `pytest` located in `tests/unit/` and `tests/integration/`.
+* Verifies socket compatibility, RAM generations, case form factor constraints, and safety guard refusals.
+
+### Multi-Turn User Simulation
+* **Harness**: Implemented in [simulate_dataset.py](file:///home/kejia/gauss/tests/eval/simulate_dataset.py).
+* **Dataset**: Evaluates the 20 PC builder test cases from [basic-dataset.json](file:///home/kejia/gauss/tests/eval/datasets/basic-dataset.json).
+* **Simulator**: Uses `gemini-2.5-flash` playing the role of a consumer who negotiates upgrades (e.g., SSD, cooler, quiet operations) and budget changes.
+* **Orchestration**: Runs programmatic turns through `InMemoryRunner`, preserving session state dynamically.
+* **Cleaning**: Strips all non-schema fields (keeping only `author` and `content`) to validate perfectly against the strict Vertex AI `EvaluationDataset` model.

@@ -51,6 +51,32 @@
         "performance_rating": 95
       },
       "link": "https://example.com/intel-i7-13700k"
+    },
+    {
+      "id": "cpu_intel_i3_12100",
+      "name": "Intel Core i3-12100",
+      "price": 110.00,
+      "brand": "Intel",
+      "specs": {
+        "socket": "LGA1700",
+        "power_draw_w": 60,
+        "cores": 4,
+        "performance_rating": 50
+      },
+      "link": "https://example.com/intel-i3-12100"
+    },
+    {
+      "id": "cpu_ryzen5_5600g",
+      "name": "AMD Ryzen 5 5600G",
+      "price": 125.00,
+      "brand": "AMD",
+      "specs": {
+        "socket": "AM5",
+        "power_draw_w": 65,
+        "cores": 6,
+        "performance_rating": 60
+      },
+      "link": "https://example.com/amd-ryzen-5-5600g"
     }
   ],
   "gpus": [
@@ -101,6 +127,18 @@
         "performance_rating": 88
       },
       "link": "https://example.com/rx-7800xt"
+    },
+    {
+      "id": "gpu_integrated",
+      "name": "Integrated Graphics",
+      "price": 0.00,
+      "brand": "None",
+      "specs": {
+        "power_draw_w": 0,
+        "vram_gb": 0,
+        "performance_rating": 10
+      },
+      "link": "https://example.com/integrated-graphics"
     }
   ],
   "motherboards": [
@@ -151,6 +189,18 @@
         "ram_generation": "DDR5"
       },
       "link": "https://example.com/gigabyte-b650i"
+    },
+    {
+      "id": "mb_h610_ddr4",
+      "name": "Gigabyte H610M S2H V2",
+      "price": 75.00,
+      "brand": "Gigabyte",
+      "specs": {
+        "socket": "LGA1700",
+        "form_factor": "Micro-ATX",
+        "ram_generation": "DDR4"
+      },
+      "link": "https://example.com/gigabyte-h610m"
     }
   ],
   "ram": [
@@ -186,6 +236,17 @@
         "capacity_gb": 16
       },
       "link": "https://example.com/gskill-flare-x5-16gb-ddr5"
+    },
+    {
+      "id": "ram_crucial_8_ddr4",
+      "name": "Crucial 8GB DDR4 3200MHz",
+      "price": 20.00,
+      "brand": "Crucial",
+      "specs": {
+        "generation": "DDR4",
+        "capacity_gb": 8
+      },
+      "link": "https://example.com/crucial-8gb-ddr4"
     }
   ],
   "storage": [
@@ -221,6 +282,17 @@
         "capacity_gb": 2000
       },
       "link": "https://example.com/seagate-barracuda-2tb"
+    },
+    {
+      "id": "storage_kingston_240gb",
+      "name": "Kingston A400 240GB SATA SSD",
+      "price": 25.00,
+      "brand": "Kingston",
+      "specs": {
+        "type": "SSD",
+        "capacity_gb": 240
+      },
+      "link": "https://example.com/kingston-a400-240gb"
     }
   ],
   "psus": [
@@ -253,6 +325,16 @@
         "wattage": 850
       },
       "link": "https://example.com/seasonic-focus-850"
+    },
+    {
+      "id": "psu_thermaltake_430",
+      "name": "Thermaltake Smart 430W",
+      "price": 35.00,
+      "brand": "Thermaltake",
+      "specs": {
+        "wattage": 430
+      },
+      "link": "https://example.com/thermaltake-smart-430w"
     }
   ],
   "cases": [
@@ -285,6 +367,16 @@
         "supported_form_factors": ["Mini-ITX"]
       },
       "link": "https://example.com/cooler-master-nr200"
+    },
+    {
+      "id": "case_rosewill_fbm01",
+      "name": "Rosewill FBM-01 Micro-ATX",
+      "price": 30.00,
+      "brand": "Rosewill",
+      "specs": {
+        "supported_form_factors": ["Micro-ATX", "Mini-ITX"]
+      },
+      "link": "https://example.com/rosewill-fbm-01"
     }
   ],
   "coolers": [
@@ -308,7 +400,7 @@
         "supported_sockets": ["AM5", "LGA1700"],
         "type": "liquid"
       },
-      "link": "https://example.com/corsair-h100i"
+      "link": "https://example.com/cooler-master-hyper-212"
     },
     {
       "id": "cooler_noctua_d15",
@@ -320,6 +412,17 @@
         "type": "air"
       },
       "link": "https://example.com/noctua-nh-d15"
+    },
+    {
+      "id": "cooler_stock",
+      "name": "Stock Cooler (Included)",
+      "price": 0.00,
+      "brand": "None",
+      "specs": {
+        "supported_sockets": ["AM5", "LGA1700"],
+        "type": "air"
+      },
+      "link": "https://example.com/stock-cooler"
     }
   ]
 }
