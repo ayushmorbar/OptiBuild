@@ -72,6 +72,7 @@ The agent will be structured using Vertex AI ADK.
 
 ### Concierge Agent (`app/agent.py`)
 - **System Prompt**: Acts as the user-facing assistant. It parses requirements, enforces security rules (refusing unsafe/illegal queries), interactively requests missing requirements, and delegates solving to the `SolverSpecialistAgent` via A2A protocol.
+- **PII & Credit Card Redaction**: Configured with `before_model_callback` and `after_model_callback` hooks to dynamically scan and redact credit card numbers and Social Security Numbers from all incoming prompts, history context, system instructions, and outgoing model responses before any API calls are executed or displayed.
 
 ### Solver Specialist Agent
 - **System Prompt**: Acts as the backend specialist for running calculations. It connects to the local MCP server over stdio and registers the MCP tools.

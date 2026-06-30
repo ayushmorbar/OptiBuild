@@ -25,7 +25,8 @@ This file logs our progress as we build, evaluate, and iterate on the 5dgai Opti
 - [x] Implement deterministic compatibility checker functions
 - [x] Implement mathematical solver/heuristic optimization algorithm in `app/tools.py`
 - [x] Refactor agent structure to Multi-Agent hierarchy (`ConciergeAgent` and `SolverSpecialistAgent`)
-- [x] Implement input sanitization and safety prompt guardrails
+- [x] Implement input sanitization and safety prompt guardrails (safety subagent)
+- [x] Implement regex-based PII and credit card redaction callbacks (before/after model hooks)
 - [x] Implement Stdio MCP Server (`app/mcp_server.py`) and connect it via `McpToolset`
 - [x] Wire up FastAPI endpoint and local environment configurations (`.env`)
 
