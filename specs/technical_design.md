@@ -42,13 +42,13 @@ The agent controls the interaction loop and hands off the combinatorial optimiza
 graph TD
     START([User Prompt]) --> ParseInput[Parse requirements: budget, purpose, preferences]
     ParseInput --> CheckCompleteness{Has Budget & Purpose?}
-    CheckCompleteness -- No --> Clarify[Ask user for clarification]
+    CheckCompleteness -->|No| Clarify[Ask user for clarification]
     Clarify --> WaitUser([Wait for user response])
     WaitUser --> ParseInput
-    CheckCompleteness -- Yes --> Solve[Run Deterministic Solver / Optimization]
+    CheckCompleteness -->|Yes| Solve[Run Deterministic Solver / Optimization]
     Solve --> VerifyCompatibility{Check compatibility & budget}
-    VerifyCompatibility -- Valid Candidates Found --> FormulateConfig[Format configs: name, price, link, total]
-    VerifyCompatibility -- No Candidates Found --> RaiseLimit[Inform user & suggest budget/spec adjustment]
+    VerifyCompatibility -->|Valid Candidates Found| FormulateConfig[Format configs: name, price, link, total]
+    VerifyCompatibility -->|No Candidates Found| RaiseLimit[Inform user & suggest budget/spec adjustment]
     FormulateConfig --> Present[Present final configurations]
     RaiseLimit --> Present
     Present --> END([Done])
