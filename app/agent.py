@@ -33,6 +33,43 @@ os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+import re
+
+def redact_text(text: str) -> str:
+    """Redacts credit card numbers (13-16 digits with spaces/dashes) and SSNs."""
+    # Match standard credit cards: 13-16 digits with optional spaces or dashes
+    cc_pattern = r"\b(?:\d[ -]*?){13,16}\b"
+    # Match standard US Social Security Numbers (SSN)
+    ssn_pattern = r"\b\d{3}-\d{2}-\d{4}\b"
+    
+    text = re.sub(cc_pattern, "[REDACTED CREDIT CARD]", text)
+    text = re.sub(ssn_pattern, "[REDACTED PII]", text)
+    return text
+
+async def before_model_redact_pii(callback_context, llm_request) -> None:
+    """Pre-model callback to redact PII/credit cards from the request payload/history."""
+    if llm_request.contents:
+        for content in llm_request.contents:
+            if content.parts:
+                for part in content.parts:
+                    if part.text:
+                        part.text = redact_text(part.text)
+    
+    if llm_request.config and llm_request.config.system_instruction:
+        if isinstance(llm_request.config.system_instruction, str):
+            llm_request.config.system_instruction = redact_text(llm_request.config.system_instruction)
+        elif hasattr(llm_request.config.system_instruction, "parts"):
+            for part in llm_request.config.system_instruction.parts:
+                if part.text:
+                    part.text = redact_text(part.text)
+
+async def after_model_redact_pii(callback_context, llm_response) -> None:
+    """Post-model callback to redact PII/credit cards from generated response text."""
+    if llm_response.content and llm_response.content.parts:
+        for part in llm_response.content.parts:
+            if part.text:
+                part.text = redact_text(part.text)
+
 # 1. Safety Guard Agent (Sub-Agent for Multi-Agent System)
 safety_guard = Agent(
     name="safety_guard",
@@ -46,6 +83,8 @@ You must refuse requests that ask for:
 - Pirated software, operating system cracks, or illegal activation keys.
 - Unsafe hardware modifications (e.g. bypassing thermal thresholds, dangerous electrical overvolting).
 If the request is safe and legal, respond exactly with 'SAFE'. Otherwise, provide the refusal explanation.""",
+    before_model_callback=before_model_redact_pii,
+    after_model_callback=after_model_redact_pii,
 )
 
 safety_guard_tool = AgentTool(agent=safety_guard)
@@ -152,6 +191,8 @@ Your goals:
    - Keep total costs strictly under the user's maximum budget limit. If no compatible builds exist under the budget, explain that it is unfeasible instead of exceeding the budget or making up parts.
    - Provide a brief, mathematically accurate justification explaining how the configuration optimizes their goals and fits within budget limit.""",
     tools=[solver_specialist, safety_guard_tool],
+    before_model_callback=before_model_redact_pii,
+    after_model_callback=after_model_redact_pii,
 )
 
 app = App(
