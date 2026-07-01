@@ -140,7 +140,15 @@ async def simulate_case(client, case, max_turns, simulator_model):
         role="user",
         parts=[types.Part.from_text(text=initial_prompt)]
     )
-    turn_events = []
+    turn_events = [
+        {
+            "author": "user",
+            "content": {
+                "role": "user",
+                "parts": [{"text": initial_prompt}]
+            }
+        }
+    ]
     async for event in runner.run_async(user_id=uid, session_id=sid, new_message=new_message):
         turn_events.append(serialize_event(event))
 
@@ -193,7 +201,15 @@ async def simulate_case(client, case, max_turns, simulator_model):
             role="user",
             parts=[types.Part.from_text(text=simulated_user_input)]
         )
-        f_events = []
+        f_events = [
+            {
+                "author": "user",
+                "content": {
+                    "role": "user",
+                    "parts": [{"text": simulated_user_input}]
+                }
+            }
+        ]
         async for event in runner.run_async(user_id=uid, session_id=sid, new_message=followup_message):
             f_events.append(serialize_event(event))
 
