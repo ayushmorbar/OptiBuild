@@ -24,6 +24,41 @@ STAGE_MODELS = {
 }
 
 
+def normalize_raw_dict(stage: int, d: dict) -> dict:
+    """Rewrite known LLM synonyms in raw dictionary before strict validation."""
+    import copy
+
+    d = copy.deepcopy(d)
+
+    if stage == 1:
+        req_attrs = d.get("required_attributes")
+        if isinstance(req_attrs, list):
+            for attr in req_attrs:
+                if isinstance(attr, dict) and "data_type" in attr:
+                    dt = str(attr["data_type"]).lower().strip()
+                    dt_map = {
+                        "string": "str",
+                        "integer": "int",
+                        "number": "float",
+                        "boolean": "bool",
+                    }
+                    attr["data_type"] = dt_map.get(dt, dt)
+    elif stage == 3:
+        if "direction" in d:
+            direc = str(d["direction"]).lower().strip()
+            dir_map = {
+                "min": "minimize",
+                "max": "maximize",
+            }
+            d["direction"] = dir_map.get(direc, direc)
+    elif stage == 4:
+        right_side = d.get("right_side")
+        if isinstance(right_side, dict) and "kind" in right_side:
+            right_side["kind"] = str(right_side["kind"]).lower().strip()
+
+    return d
+
+
 def run_modelization(
     user_request: str,
     catalog_summary: str,
@@ -83,7 +118,14 @@ def run_modelization(
             )
 
         raw = extractor(stage, prompt)
-        outputs[stage] = [STAGE_MODELS[stage].model_validate(d) for d in raw]
+        validated_items = []
+        for d in raw:
+            try:
+                normalized = normalize_raw_dict(stage, d)
+                validated_items.append(STAGE_MODELS[stage].model_validate(normalized))
+            except Exception:
+                pass
+        outputs[stage] = validated_items
 
     return PivotSchema(
         user_intent=user_request,

@@ -167,19 +167,21 @@ prefilter → solve) against `data/pc-csv/` and returns a valid build for a hard
   - [x] Stage 1 decision vars (vocabulary = metadata catalog). (use_cases dropped).
   - [x] Stage 2 derived vars, Stage 3 objectives+weights, Stage 4 constraints (no kb_ref).
   - [x] Structured output = the Phase-1 submodels; REPAIR mode re-runs only `target_stages`.
+  - [x] Lite extraction schemas (`app/extraction_schemas.py`) for Gemini structured output compatibility.
 - [ ] **5.3 Evaluator** (`evaluator.py`, §5)
   - [x] Deterministic completeness (resolvability verification) and coherence
         (contradiction scan, weight/direction checks).
-  - [ ] LLM judge for intent fidelity (temp 0, structured output), gated to run only after
+  - [x] LLM judge for intent fidelity (temp 0, structured output), gated to run only after
         deterministic dims pass (§11-Q4).
   - [x] Emit `EvaluationFeedback` with `target_stages`.
   - [x] `tests/test_evaluator.py`: deterministic dims on fixture schemas (contradictory constraints → coherence violation).
 - [ ] **5.4 Orchestration loop** (`agent.py`, §3 + §5)
   - [x] Deterministic Concierge loop (in `app/concierge.py`); shared 3-iteration budget covering
         both evaluator failures and solver `INFEASIBLE`/`MISSING_DATA` bounces.
-  - [ ] Concierge `LlmAgent` + Evaluator ADK/A2A assembly.
+  - [x] Synonym normalization (e.g., string->str, min->minimize) and robust exception recovery during modelization.
+  - [ ] Concierge `LlmAgent` + Evaluator ADK/A2A assembly (Remaining Polish: ADK root_agent, adk web, A2A HTTP, PII-redaction).
   - [ ] Budget sanitization at intake (`0 ≤ budget ≤ 10^6`, §8).
-  - [ ] A2A client call to Solver (env-flag: same-process for dev, HTTP A2A for dev/demo); convert
+  - [x] A2A client call to Solver (env-flag: same-process for dev, HTTP A2A for dev/demo); convert
         solver `feedback` → `EvaluationFeedback.solver_feedback`.
   - [x] Exit paths: SUCCESS → present build; budget exhausted → targeted user questions from last `feedback_details`.
 

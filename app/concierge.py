@@ -22,16 +22,20 @@ def run_concierge(
 
     feedback = None
     response = None
-
     for iteration in range(1, max_iterations + 1):
-        schema = run_modelization(
-            user_request,
-            catalog_summary,
-            extractor,
-            prior_schema=prior_schema,
-            target_stages=target_stages,
-            repair_feedback=repair_feedback,
-        )
+        try:
+            schema = run_modelization(
+                user_request,
+                catalog_summary,
+                extractor,
+                prior_schema=prior_schema,
+                target_stages=target_stages,
+                repair_feedback=repair_feedback,
+            )
+        except Exception as e:
+            target_stages = [1, 2, 3, 4]
+            repair_feedback = str(e)
+            continue
 
         # 1. Gate check on deterministic dimensions first
         det = evaluate_deterministic(schema, iteration)
@@ -110,9 +114,12 @@ def run_concierge(
             )
 
     if not questions:
-        questions.append(
-            "Could not satisfy the request with a valid, feasible PC build."
-        )
+        if repair_feedback:
+            questions.append(repair_feedback)
+        else:
+            questions.append(
+                "Could not satisfy the request with a valid, feasible PC build."
+            )
 
     return {
         "status": "NEEDS_CLARIFICATION",

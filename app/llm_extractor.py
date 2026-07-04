@@ -1,0 +1,68 @@
+"""LLM extractor wiring for the Concierge staged modelization."""
+
+import json
+
+from google import genai
+from google.genai import types
+
+from app.extraction_schemas import (
+    ConstraintLite,
+    DecisionVariableLite,
+    DerivedVariableLite,
+    ObjectiveLite,
+)
+
+
+def make_llm_extractor(model="gemini-flash-latest"):
+    """Create and return a lazy structured extraction callable.
+
+    - GOOGLE_API_KEY is used automatically from the environment.
+    """
+    client = None
+
+    stage_schemas = {
+        1: list[DecisionVariableLite],
+        2: list[DerivedVariableLite],
+        3: list[ObjectiveLite],
+        4: list[ConstraintLite],
+    }
+
+    def extractor(stage: int, prompt: str) -> list[dict]:
+        nonlocal client
+        if client is None:
+            client = genai.Client()
+
+        response_schema = stage_schemas[stage]
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=response_schema,
+                temperature=0.0,
+            ),
+        )
+
+        try:
+            if hasattr(response, "parsed") and response.parsed is not None:
+                items = response.parsed
+                if isinstance(items, list):
+                    return [
+                        (
+                            item.model_dump()
+                            if hasattr(item, "model_dump")
+                            else (item.__dict__ if hasattr(item, "__dict__") else item)
+                        )
+                        for item in items
+                    ]
+
+            data = json.loads(response.text)
+            if isinstance(data, list):
+                return data
+            elif isinstance(data, dict) and "items" in data:
+                return data["items"]
+            return [data]
+        except Exception:
+            return []
+
+    return extractor

@@ -199,3 +199,41 @@ def test_concierge_solver_infeasible_exhausted():
     assert res["status"] == "NEEDS_CLARIFICATION"
     assert res["iterations"] == 3
     assert res["questions"] == ["Budget too low"]
+
+
+def test_concierge_robust_modelization_failure():
+    def mock_extractor(stage: int, prompt: str) -> list[dict]:
+        return []
+
+    def mock_judge(
+        user_request: str, schema: PivotSchema
+    ) -> tuple[float, list[FidelityViolation]]:
+        return 1.0, []
+
+    def mock_solver_client(request) -> SolverResponse:
+        return SolverResponse(
+            transaction_id=request.transaction_id,
+            status="SUCCESS",
+            result={
+                "selections": {},
+                "derived_values": {},
+            },
+        )
+
+    res = run_concierge(
+        user_request="Build PC",
+        catalog_summary="cpu: price",
+        extractor=mock_extractor,
+        judge=mock_judge,
+        solver_client=mock_solver_client,
+        max_iterations=2,
+    )
+
+    assert res["status"] == "NEEDS_CLARIFICATION"
+    assert res["iterations"] == 2
+    assert any(
+        "validation error" in q.lower()
+        or "at least 1 item" in q.lower()
+        or "value" in q.lower()
+        for q in res["questions"]
+    )
