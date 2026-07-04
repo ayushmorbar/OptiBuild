@@ -1,0 +1,1048 @@
+{
+  "version": "1.0",
+  "datasets": [
+    {
+      "file_name": "case-accessory.csv",
+      "category_key": "case-accessory",
+      "description": "Accessories for PC cases such as brackets, mounts, and lighting.",
+      "synonyms": [
+        "case bracket",
+        "mount",
+        "rgb strip"
+      ],
+      "record_count": 8,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "type": {
+          "type": "str",
+          "required": false
+        },
+        "form_factor": {
+          "type": "float",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "case-fan.csv",
+      "category_key": "case-fan",
+      "description": "Cooling fans designed for PC cases to improve airflow.",
+      "synonyms": [
+        "chassis fan",
+        "cooling fan",
+        "rgb fan"
+      ],
+      "record_count": 2744,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "size": {
+          "type": "int",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        },
+        "rpm": {
+          "type": "str",
+          "required": false
+        },
+        "airflow": {
+          "type": "str",
+          "required": false
+        },
+        "noise_level": {
+          "type": "str",
+          "required": false
+        },
+        "pwm": {
+          "type": "bool",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "case.csv",
+      "category_key": "case",
+      "description": "PC cases and enclosures of various form factors.",
+      "synonyms": [
+        "chassis",
+        "enclosure",
+        "tower"
+      ],
+      "record_count": 6626,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "type": {
+          "type": "str",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        },
+        "psu": {
+          "type": "float",
+          "required": false
+        },
+        "side_panel": {
+          "type": "str",
+          "required": false
+        },
+        "external_volume": {
+          "type": "float",
+          "required": false
+        },
+        "internal_35_bays": {
+          "type": "int",
+          "required": false
+        }
+      },
+      "known_quirks": [
+        "no GPU-length column"
+      ]
+    },
+    {
+      "file_name": "cpu-cooler.csv",
+      "category_key": "cpu-cooler",
+      "description": "Air and liquid coolers to keep processors within safe temperatures.",
+      "synonyms": [
+        "heatsink",
+        "aio cooler",
+        "liquid cooler"
+      ],
+      "record_count": 2851,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "rpm": {
+          "type": "str",
+          "required": false
+        },
+        "noise_level": {
+          "type": "str",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        },
+        "size": {
+          "type": "float",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "cpu.csv",
+      "category_key": "cpu",
+      "description": "Central processing units for computing performance.",
+      "synonyms": [
+        "processor",
+        "central processing unit",
+        "microprocessor"
+      ],
+      "record_count": 1413,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "core_count": {
+          "type": "int",
+          "required": false
+        },
+        "core_clock": {
+          "type": "float",
+          "required": false
+        },
+        "boost_clock": {
+          "type": "float",
+          "required": false
+        },
+        "microarchitecture": {
+          "type": "str",
+          "required": false,
+          "note": "socket is NOT a column; derived via kb compatibility map (§7)"
+        },
+        "tdp": {
+          "type": "int",
+          "required": false,
+          "unit": "W"
+        },
+        "graphics": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": [
+        "no socket column"
+      ]
+    },
+    {
+      "file_name": "external-hard-drive.csv",
+      "category_key": "external-hard-drive",
+      "description": "Portable and external storage drives.",
+      "synonyms": [
+        "external drive",
+        "portable hdd",
+        "external ssd"
+      ],
+      "record_count": 690,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "type": {
+          "type": "str",
+          "required": false
+        },
+        "interface": {
+          "type": "str",
+          "required": false
+        },
+        "capacity": {
+          "type": "int",
+          "required": false
+        },
+        "price_per_gb": {
+          "type": "float",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "fan-controller.csv",
+      "category_key": "fan-controller",
+      "description": "Controllers for fan speed and RGB lighting.",
+      "synonyms": [
+        "fan hub",
+        "fan controller",
+        "rgb controller"
+      ],
+      "record_count": 54,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "channels": {
+          "type": "int",
+          "required": false
+        },
+        "channel_wattage": {
+          "type": "float",
+          "required": false
+        },
+        "pwm": {
+          "type": "bool",
+          "required": false
+        },
+        "form_factor": {
+          "type": "str",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "headphones.csv",
+      "category_key": "headphones",
+      "description": "Headphones and headsets for audio output and input.",
+      "synonyms": [
+        "headset",
+        "earphones",
+        "audio headset"
+      ],
+      "record_count": 2946,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "type": {
+          "type": "str",
+          "required": false
+        },
+        "frequency_response": {
+          "type": "str",
+          "required": false
+        },
+        "microphone": {
+          "type": "bool",
+          "required": false
+        },
+        "wireless": {
+          "type": "bool",
+          "required": false
+        },
+        "enclosure_type": {
+          "type": "str",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "internal-hard-drive.csv",
+      "category_key": "internal-hard-drive",
+      "description": "Internal storage drives including SSDs and HDDs.",
+      "synonyms": [
+        "solid state drive",
+        "hard drive",
+        "ssd",
+        "hdd"
+      ],
+      "record_count": 6461,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "capacity": {
+          "type": "float",
+          "required": false
+        },
+        "price_per_gb": {
+          "type": "float",
+          "required": false
+        },
+        "type": {
+          "type": "str",
+          "required": false
+        },
+        "cache": {
+          "type": "float",
+          "required": false
+        },
+        "form_factor": {
+          "type": "str",
+          "required": false
+        },
+        "interface": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "keyboard.csv",
+      "category_key": "keyboard",
+      "description": "Keyboards with various layouts and switch types.",
+      "synonyms": [
+        "input keyboard",
+        "mechanical keyboard"
+      ],
+      "record_count": 4310,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "style": {
+          "type": "str",
+          "required": false
+        },
+        "switches": {
+          "type": "str",
+          "required": false
+        },
+        "backlit": {
+          "type": "str",
+          "required": false
+        },
+        "tenkeyless": {
+          "type": "bool",
+          "required": false
+        },
+        "connection_type": {
+          "type": "str",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "memory.csv",
+      "category_key": "memory",
+      "description": "System RAM modules for temporary data storage.",
+      "synonyms": [
+        "ram",
+        "random access memory",
+        "memory modules"
+      ],
+      "record_count": 13553,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "speed": {
+          "type": "str",
+          "required": false
+        },
+        "modules": {
+          "type": "str",
+          "required": false
+        },
+        "price_per_gb": {
+          "type": "float",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        },
+        "first_word_latency": {
+          "type": "float",
+          "required": false
+        },
+        "cas_latency": {
+          "type": "float",
+          "required": false
+        }
+      },
+      "known_quirks": [
+        "packs speed='5,6000'",
+        "packs modules='2,16'"
+      ]
+    },
+    {
+      "file_name": "monitor.csv",
+      "category_key": "monitor",
+      "description": "Display monitors of various resolutions and refresh rates.",
+      "synonyms": [
+        "display",
+        "screen",
+        "gaming monitor"
+      ],
+      "record_count": 5074,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "screen_size": {
+          "type": "float",
+          "required": false
+        },
+        "resolution": {
+          "type": "str",
+          "required": false
+        },
+        "refresh_rate": {
+          "type": "float",
+          "required": false
+        },
+        "response_time": {
+          "type": "float",
+          "required": false
+        },
+        "panel_type": {
+          "type": "str",
+          "required": false
+        },
+        "aspect_ratio": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "motherboard.csv",
+      "category_key": "motherboard",
+      "description": "Motherboards connecting all system components.",
+      "synonyms": [
+        "mainboard",
+        "system board",
+        "mobo"
+      ],
+      "record_count": 4973,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "socket": {
+          "type": "str",
+          "required": false
+        },
+        "form_factor": {
+          "type": "str",
+          "required": false
+        },
+        "max_memory": {
+          "type": "int",
+          "required": false
+        },
+        "memory_slots": {
+          "type": "int",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "mouse.csv",
+      "category_key": "mouse",
+      "description": "Optical and laser mice for cursor input.",
+      "synonyms": [
+        "pointer",
+        "input mouse",
+        "gaming mouse"
+      ],
+      "record_count": 2806,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "tracking_method": {
+          "type": "str",
+          "required": false
+        },
+        "connection_type": {
+          "type": "str",
+          "required": false
+        },
+        "max_dpi": {
+          "type": "float",
+          "required": false
+        },
+        "hand_orientation": {
+          "type": "str",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "optical-drive.csv",
+      "category_key": "optical-drive",
+      "description": "DVD, Blu-ray, and CD read/write drives.",
+      "synonyms": [
+        "dvd drive",
+        "cd drive",
+        "blu-ray drive"
+      ],
+      "record_count": 231,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "bd": {
+          "type": "float",
+          "required": false
+        },
+        "dvd": {
+          "type": "float",
+          "required": false
+        },
+        "cd": {
+          "type": "float",
+          "required": false
+        },
+        "bd_write": {
+          "type": "str",
+          "required": false
+        },
+        "dvd_write": {
+          "type": "str",
+          "required": false
+        },
+        "cd_write": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "os.csv",
+      "category_key": "os",
+      "description": "Operating systems licenses like Windows and Linux.",
+      "synonyms": [
+        "operating system",
+        "windows license"
+      ],
+      "record_count": 62,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "mode": {
+          "type": "str",
+          "required": false
+        },
+        "max_memory": {
+          "type": "int",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "power-supply.csv",
+      "category_key": "power-supply",
+      "description": "Power supply units delivering power to internal hardware.",
+      "synonyms": [
+        "psu",
+        "power supply unit"
+      ],
+      "record_count": 3438,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "type": {
+          "type": "str",
+          "required": false
+        },
+        "efficiency": {
+          "type": "str",
+          "required": false
+        },
+        "wattage": {
+          "type": "int",
+          "required": false,
+          "unit": "W"
+        },
+        "modular": {
+          "type": "str",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "sound-card.csv",
+      "category_key": "sound-card",
+      "description": "Sound cards for high-fidelity audio processing.",
+      "synonyms": [
+        "audio card",
+        "sound board"
+      ],
+      "record_count": 77,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "channels": {
+          "type": "float",
+          "required": false
+        },
+        "digital_audio": {
+          "type": "float",
+          "required": false
+        },
+        "snr": {
+          "type": "float",
+          "required": false
+        },
+        "sample_rate": {
+          "type": "float",
+          "required": false
+        },
+        "chipset": {
+          "type": "str",
+          "required": false
+        },
+        "interface": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "speakers.csv",
+      "category_key": "speakers",
+      "description": "External speakers for audio playback.",
+      "synonyms": [
+        "audio speakers",
+        "pc speakers"
+      ],
+      "record_count": 302,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "configuration": {
+          "type": "float",
+          "required": false
+        },
+        "wattage": {
+          "type": "float",
+          "required": false,
+          "unit": "W"
+        },
+        "frequency_response": {
+          "type": "str",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "thermal-paste.csv",
+      "category_key": "thermal-paste",
+      "description": "Thermal interface materials for CPU/GPU heat transfer.",
+      "synonyms": [
+        "thermal compound",
+        "heatsink paste"
+      ],
+      "record_count": 210,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "amount": {
+          "type": "float",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "ups.csv",
+      "category_key": "ups",
+      "description": "Uninterruptible power supplies for battery backup.",
+      "synonyms": [
+        "battery backup",
+        "uninterruptible power supply"
+      ],
+      "record_count": 702,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "capacity_w": {
+          "type": "float",
+          "required": false
+        },
+        "capacity_va": {
+          "type": "float",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "video-card.csv",
+      "category_key": "video-card",
+      "description": "Graphics processing units for visual rendering.",
+      "synonyms": [
+        "gpu",
+        "graphics card",
+        "display adapter"
+      ],
+      "record_count": 6636,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "chipset": {
+          "type": "str",
+          "required": false
+        },
+        "memory": {
+          "type": "float",
+          "required": false
+        },
+        "core_clock": {
+          "type": "float",
+          "required": false
+        },
+        "boost_clock": {
+          "type": "float",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        },
+        "length": {
+          "type": "float",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "webcam.csv",
+      "category_key": "webcam",
+      "description": "Web cameras for video recording and streaming.",
+      "synonyms": [
+        "camera",
+        "video camera"
+      ],
+      "record_count": 78,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "resolutions": {
+          "type": "str",
+          "required": false
+        },
+        "connection": {
+          "type": "str",
+          "required": false
+        },
+        "focus_type": {
+          "type": "str",
+          "required": false
+        },
+        "os": {
+          "type": "str",
+          "required": false
+        },
+        "fov": {
+          "type": "float",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "wired-network-card.csv",
+      "category_key": "wired-network-card",
+      "description": "PCIe and USB wired ethernet network adapters.",
+      "synonyms": [
+        "ethernet card",
+        "network interface card",
+        "nic"
+      ],
+      "record_count": 157,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "interface": {
+          "type": "str",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "wireless-network-card.csv",
+      "category_key": "wireless-network-card",
+      "description": "Wi-Fi and Bluetooth wireless network adapters.",
+      "synonyms": [
+        "wifi card",
+        "wireless adapter",
+        "wlan card"
+      ],
+      "record_count": 376,
+      "columns": {
+        "name": {
+          "type": "str",
+          "required": true
+        },
+        "price": {
+          "type": "float",
+          "required": true,
+          "unit": "USD"
+        },
+        "protocol": {
+          "type": "str",
+          "required": false
+        },
+        "interface": {
+          "type": "str",
+          "required": false
+        },
+        "color": {
+          "type": "str",
+          "required": false
+        }
+      },
+      "known_quirks": []
+    }
+  ]
+}
