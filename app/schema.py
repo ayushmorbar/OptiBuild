@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # Leaf types
@@ -433,3 +433,124 @@ class EvaluationFeedback(BaseModel):
     feedback_details: FeedbackDetails = Field(
         ..., description="Detailed feedback on violations."
     )
+
+
+# ---------------------------------------------------------------------------
+# MCP Tool Contracts (§4)
+# ---------------------------------------------------------------------------
+
+
+class FilterRowsOp(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    op: Literal["filter_rows"] = "filter_rows"
+    category: str
+    expr: str
+
+
+class DropNullsOp(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    op: Literal["drop_nulls"] = "drop_nulls"
+    category: str
+    columns: list[str]
+
+
+class MapValuesOp(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    op: Literal["map_values"] = "map_values"
+    category: str
+    column: str
+    mapping: dict[str, str]
+
+
+class ClipRangeOp(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    op: Literal["clip_range"] = "clip_range"
+    category: str
+    column: str
+    min: float | None = None
+    max: float | None = None
+
+
+CleanOp = Annotated[
+    FilterRowsOp | DropNullsOp | MapValuesOp | ClipRangeOp,
+    Field(discriminator="op"),
+]
+
+
+class DatasetMatch(BaseModel):
+    category_key: str
+    file_name: str
+    description: str
+    columns: dict[str, str]
+    score: float
+
+
+class CoverageItem(BaseModel):
+    category: str
+    found_columns: list[str]
+    missing_columns: list[str]
+    row_count: int
+
+
+class LoadReport(BaseModel):
+    dataset_handle: str
+    coverage: list[CoverageItem]
+
+
+class CleanCategoryReport(BaseModel):
+    rows_dropped: int
+    fixes: list[str]
+
+
+class CleanReport(BaseModel):
+    handle: str
+    per_category: dict[str, CleanCategoryReport]
+
+
+class QueryReport(BaseModel):
+    rows: list[dict]
+    stats: dict | None = None
+    dtypes: dict[str, str]
+    row_count: int
+
+
+class RejectedOp(BaseModel):
+    op_index: int
+    reason: str
+
+
+class RowsBeforeAfter(BaseModel):
+    rows_before: int
+    rows_after: int
+
+
+class DynCleanReport(BaseModel):
+    accepted_ops: int
+    rejected: list[RejectedOp]
+    per_category: dict[str, RowsBeforeAfter]
+    columns_changed: list[str]
+
+
+class ResolvedThreshold(BaseModel):
+    op: str
+    value: float
+
+
+class ResolveReport(BaseModel):
+    resolved: dict[str, ResolvedThreshold]
+    unresolved: list[str]
+
+
+class PrefilterReport(BaseModel):
+    handle: str
+    per_category: dict[str, RowsBeforeAfter]
+    emptied_categories: list[str]
+
+
+class SolveReport(BaseModel):
+    status: Literal["OPTIMAL", "FEASIBLE", "INFEASIBLE"]
+    selections: dict[str, dict] = Field(default_factory=dict)
+    derived_values: dict[str, float] = Field(default_factory=dict)
+    ranking: Ranking | None = None
+    failed_constraints: list[str] = Field(default_factory=list)
+    solve_ms: int
