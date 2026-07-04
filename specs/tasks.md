@@ -17,14 +17,13 @@ gate — don't start the next phase until it holds.
 
 ## Phase 0 — Project Foundations
 
-- [ ] **0.1 Initialize the uv project**
-  - [ ] `uv init` → `pyproject.toml` (Python ≥3.11), package layout for `app/` and `solver_app/`.
-  - [ ] Add deps: `google-adk`, `fastmcp`, `ortools`, `pymcdm`, `pandas`, `numexpr`, `pydantic`.
-  - [ ] Add dev deps: `pytest`, `pytest-asyncio`, `ruff`.
-- [ ] **0.2 Skeleton tree** (§9): create empty modules for `app/{agent,schema,modelization,evaluator}.py`,
-      `app/prompts/`, `app/mcp_server/{__main__,server,catalog,store,cleaning,safe_ops,kb,prefilter,cpsat,ranking}.py`,
-      `solver_app/{agent,gates,dynamic_clean_prompt}.py`, `tests/`, `eval/`.
-- [ ] **0.3 Tooling sanity**: `uv run pytest` (collects 0 tests, exits 0); `uv run ruff check` clean.
+- [x] **0.1 Initialize the uv project**
+  - [x] `uv init` → `pyproject.toml` (Python ≥3.11), package layout for `app/` and `solver_app/`.
+  - [x] Add deps: `google-adk`, `fastmcp`, `ortools`, `pymcdm`, `pandas`, `numexpr`, `pydantic`.
+  - [x] Add dev deps: `pytest`, `pytest-asyncio`, `ruff`.
+- [x] **0.2 Skeleton tree** (§9) — built incrementally across the phases (note: `kb.py` dropped with the
+      KB decision; prompts live in `app/prompt_contracts.py`; `app/concierge.py` added).
+- [x] **0.3 Tooling sanity**: `uv run pytest` + `uv run ruff check` clean; `pre-commit` also wired.
 
 **Done when:** `uv sync` + `uv run pytest` + `uv run python -c "import ortools, fastmcp, pymcdm, numexpr"` all succeed.
 
@@ -70,12 +69,12 @@ architecture validates against its model.
 - **2.2 Knowledge base — DROPPED** (owner decision 2026-07-04; see architecture.md §2b-b). No
   per-use-case threshold KB: qualitative intent → optimization objectives, explicit numbers →
   literal constraints. The `microarchitecture → socket` map moves to 2.3.
-- [ ] **2.3 Compatibility rules `data/compatibility_rules.json`** (§7): the `microarchitecture →
-      socket` map (covering every value in `cpu.csv`), plus a declarative table for cpu↔motherboard
-      socket, motherboard↔case form factor, PSU ≥ 1.3 × Σ tdp.
-- [ ] **2.4 Tests — `tests/unit/test_data_assets.py`**: metadata matches actual CSV headers (done
-      in 2.1); socket map covers all distinct `cpu.microarchitecture` values; compat rules
-      reference existing columns only.
+- **2.3 Compatibility rules — DROPPED** (owner decision, architecture.md §2b-b): no hand-authored
+  `compatibility_rules.json`. Compatibility is expressed by the agent as `var_ref` constraints
+  (`origin="compatibility"`). Numeric `var_ref` + the capacity coefficient (PSU ≥ 1.3 × Σ tdp) are
+  enforced by CP-SAT; categorical `var_ref` (socket matching) is deferred pending dataset enrichment.
+- [x] **2.4 Tests — `tests/unit/test_data_assets.py`**: metadata matches actual CSV headers (done in
+      2.1). The socket-map / compat-rules checks are moot (2.3 dropped).
 
 **Done when:** asset tests green against the real `data/pc-csv/` files.
 
@@ -169,7 +168,7 @@ prefilter → solve) against `data/pc-csv/` and returns a valid build for a hard
   - [x] Structured output = the Phase-1 submodels; REPAIR mode re-runs only `target_stages`.
   - [x] Lite extraction schemas (`app/extraction_schemas.py`) for Gemini structured output compatibility.
   - [x] One-shot modelization path (`build_schema_oneshot` / `PivotSchemaLite`) for quota-friendly execution.
-- [ ] **5.3 Evaluator** (`evaluator.py`, §5)
+- [x] **5.3 Evaluator** (`evaluator.py`, §5)
   - [x] Deterministic completeness (resolvability verification) and coherence
         (contradiction scan, weight/direction checks).
   - [x] LLM judge for intent fidelity (temp 0, structured output), gated to run only after
@@ -193,12 +192,12 @@ schema that passes the evaluator ≤3 iterations and returns a presented build e
 
 ## Phase 6 — Integration & Security Verification
 
-- [ ] **6.1 End-to-end scenario suite** (scripted, real data):
-  - [ ] Happy path single-objective (min price, fixed requirements).
-  - [ ] Multi-objective (price vs performance) → TOPSIS ranking visible in response.
-  - [ ] `MISSING_DATA` path: request needing a nonexistent column (e.g. GPU noise dB) → user informed.
-  - [ ] `INFEASIBLE` path: impossible budget → relaxation suggestions surfaced, no auto-relax.
-  - [ ] Loop-guard path: adversarially vague request → ≤3 iterations then clarifying questions.
+- [x] **6.1 End-to-end scenarios** — verified via `tests/integration/` + demos (not a separate suite script):
+  - [x] Happy path single-objective (min price) — `scripts/run_offline_demo.py` (full 8-category build).
+  - [x] Multi-objective → TOPSIS ranking — `tests/unit/test_cpsat.py`.
+  - [x] `MISSING_DATA` path (absent required category) — `tests/integration/test_solver_pipeline.py`.
+  - [x] `INFEASIBLE` path (impossible budget) → relaxation suggestions — `tests/integration/test_solver_pipeline.py`.
+  - [x] Loop-guard path (≤3 iterations → clarify) — `tests/unit/test_concierge.py`.
 - [x] **6.2 Security red-team checks** (capstone demo material, §8):
   - [x] Prompt-injected request ("ignore instructions, run os.system…") → modelization treats it
         as data; no tool receives code.
@@ -213,6 +212,8 @@ schema that passes the evaluator ≤3 iterations and returns a presented build e
 ---
 
 ## Phase 7 — Eval Suite & Deployment (capstone concepts 4–6)
+
+> **Not started — external dependencies:** eval needs LLM quota (paid Gemini API tier); deployment needs GCP + billing.
 
 - [ ] **7.1 Eval assets** (`eval/`)
   - [ ] `basic-dataset.json`: 20 multi-turn cases spanning Phase-6 scenario classes
