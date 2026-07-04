@@ -245,3 +245,191 @@ class PivotSchema(BaseModel):
         for o in self.objectives:
             o.weight = o.weight / total
         return self
+
+
+# ---------------------------------------------------------------------------
+# A2A Contract types (§3)
+# ---------------------------------------------------------------------------
+
+
+class ObjectiveReportItem(BaseModel):
+    """An item in the objective report detailing targets and values."""
+
+    target: str = Field(..., description="Target variable name.")
+    direction: Literal["maximize", "minimize"] = Field(
+        ..., description="Direction of optimization."
+    )
+    value: float = Field(..., description="Resulting value for this objective.")
+
+
+class Ranking(BaseModel):
+    """Multi-objective ranking result metadata."""
+
+    method: str = Field(..., description="Ranking method used, e.g. 'topsis'.")
+    score: float = Field(..., description="Normalized TOPSIS score.")
+    candidates_ranked: int = Field(
+        ..., description="Total candidates evaluated in the ranking."
+    )
+
+
+class SolverResult(BaseModel):
+    """Selections and metrics for a successful solver run."""
+
+    selections: dict[str, dict] = Field(
+        ..., description="Selected components, keyed by category."
+    )
+    derived_values: dict[str, float] = Field(
+        default_factory=dict, description="Values of derived variables."
+    )
+    objective_report: list[ObjectiveReportItem] = Field(
+        default_factory=list, description="Performance of objectives."
+    )
+    ranking: Ranking | None = Field(
+        default=None,
+        description="Ranking details if multi-objective optimization was used.",
+    )
+
+
+class MissingAttribute(BaseModel):
+    """Details of a missing attribute required for optimization."""
+
+    category: str = Field(..., description="The component category.")
+    attribute: str = Field(..., description="The missing attribute column name.")
+    referenced_by: list[str] = Field(
+        default_factory=list, description="The constraints referencing this attribute."
+    )
+
+
+class RelaxationSuggestion(BaseModel):
+    """A suggestion on how to relax a constraint to make the build feasible."""
+
+    constraint: str = Field(..., description="Name of the constraint to relax.")
+    suggestion: str = Field(..., description="Relaxation recommendation details.")
+
+
+class SolverFeedback(BaseModel):
+    """Feedback details populated when the solver is infeasible or has missing data."""
+
+    reason: str = Field(
+        ..., description="Human-readable reason for the solver failure."
+    )
+    missing_attributes: list[MissingAttribute] = Field(
+        default_factory=list, description="List of attributes needed but not found."
+    )
+    failed_constraints: list[str] = Field(
+        default_factory=list, description="Constraints that could not be satisfied."
+    )
+    relaxation_suggestions: list[RelaxationSuggestion] = Field(
+        default_factory=list, description="Suggestions for making the request feasible."
+    )
+
+
+SolverStatus = Literal["SUCCESS", "INFEASIBLE", "MISSING_DATA", "ERROR"]
+
+
+class SolverRequestContext(BaseModel):
+    """Context metadata passed alongside the solver request."""
+
+    original_prompt: str = Field(..., description="Verbatim raw user request prompt.")
+    locale_currency: str = Field(
+        default="USD", description="Currency code for price computations."
+    )
+
+
+class SolverRequest(BaseModel):
+    """A request payload sent to the Solver Specialist."""
+
+    transaction_id: str = Field(..., description="Unique transaction UUID.")
+    iteration: int = Field(
+        default=1, description="Iteration attempt number of the Concierge."
+    )
+    pivot_schema: PivotSchema = Field(
+        ..., description="The Pivot Schema optimization model."
+    )
+    context: SolverRequestContext = Field(
+        ..., description="Metadata and prompt context."
+    )
+
+
+class SolverResponse(BaseModel):
+    """A response payload returned by the Solver Specialist."""
+
+    transaction_id: str = Field(..., description="Unique transaction UUID.")
+    status: SolverStatus = Field(..., description="Solver execution status.")
+    result: SolverResult | None = Field(
+        default=None, description="The build solution. Present only if SUCCESS."
+    )
+    feedback: SolverFeedback | None = Field(
+        default=None, description="Details on failure. Present only if not SUCCESS."
+    )
+    trace: dict = Field(
+        default_factory=dict, description="Diagnostics, timings, and metadata."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Evaluator Optimizer Loop types (§5)
+# ---------------------------------------------------------------------------
+
+
+class EvaluatorScores(BaseModel):
+    """Scores assigned by the Evaluator judge across multiple dimensions."""
+
+    completeness: float = Field(
+        ..., description="Completeness score between 0.0 and 1.0."
+    )
+    coherence: float = Field(..., description="Coherence score between 0.0 and 1.0.")
+    intent_fidelity: float = Field(
+        ..., description="Fidelity score between 0.0 and 1.0."
+    )
+
+
+class FidelityViolation(BaseModel):
+    """A missing or misaligned user requirement found by the Evaluator."""
+
+    user_phrase: str = Field(
+        ..., description="The user prompt phrase expressing intent."
+    )
+    problem: str = Field(
+        ..., description="Why the pivot schema does not satisfy the phrase."
+    )
+    suggestion: str = Field(
+        ..., description="Actionable suggestion to resolve the violation."
+    )
+
+
+class FeedbackDetails(BaseModel):
+    """Structured details of evaluation failures for modelization optimizer loop."""
+
+    target_stages: list[int] = Field(
+        default_factory=list, description="Stages that need to be re-run, e.g. [1, 4]."
+    )
+    missing_categories: list[str] = Field(
+        default_factory=list,
+        description="List of required categories that are missing.",
+    )
+    coherence_violations: list[str] = Field(
+        default_factory=list, description="Contradictions and invalid ranges found."
+    )
+    fidelity_violations: list[FidelityViolation] = Field(
+        default_factory=list, description="Mismatches between user prompt and schema."
+    )
+    solver_feedback: SolverFeedback | None = Field(
+        default=None,
+        description="Solver failure details if loop trigger was solver error.",
+    )
+
+
+class EvaluationFeedback(BaseModel):
+    """Feedback payload produced by the Evaluator optimizer loop."""
+
+    passed: bool = Field(
+        ..., description="Whether the pivot schema passed all thresholds."
+    )
+    iteration: int = Field(..., description="The loop iteration sequence number.")
+    scores: EvaluatorScores = Field(
+        ..., description="Scores for completeness/coherence/fidelity."
+    )
+    feedback_details: FeedbackDetails = Field(
+        ..., description="Detailed feedback on violations."
+    )
