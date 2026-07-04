@@ -87,46 +87,44 @@ architecture validates against its model.
   - [x] `store.py`: session-scoped `dataset_handle` registry (create/get/copy/replace; TTL or explicit release).
   - [x] `server.py` + `__main__.py`: FastMCP registration, Stdio entrypoint
         (`uv run python -m app.mcp_server`).
-- [ ] **3.2 Data discovery & loading**
-  - [ ] `search_datasets` (`catalog.py`): exact key → synonym → fuzzy-string match; RAG fallback stubbed
+- [x] **3.2 Data discovery & loading**
+  - [x] `search_datasets` (`catalog.py`): exact key → synonym → fuzzy-string match; RAG fallback stubbed
         behind the §6 trigger (not in V1 hot path).
-  - [ ] `load_data` (`store.py`): read CSVs for requested categories → `LoadReport` coverage
+  - [x] `load_data` (`store.py`): read CSVs for requested categories → `LoadReport` coverage
         (found/missing columns, row counts). `price` implicitly required.
-- [ ] **3.3 Cleaning**
-  - [ ] `clean_systematic` (`cleaning.py`): null/negative/zero price drop; numeric coercion with
+- [x] **3.3 Cleaning**
+  - [x] `clean_systematic` (`cleaning.py`): null/negative/zero price drop; numeric coercion with
         drop-count; IQR price outliers; category fixes (split `memory.speed`→`ddr_gen`+`speed_mhz`,
         `memory.modules`→`module_count`+`module_gb`). Rule list data-driven so Phase-6 findings can extend it.
-  - [ ] `safe_ops.py` — the security-bearing module (§8):
-    - [ ] Expression gate: tokenizer allowlist (declared columns, literals, comparison/boolean ops,
+  - [x] `safe_ops.py` — the security-bearing module (§8):
+    - [x] Expression gate: tokenizer allowlist (declared columns, literals, comparison/boolean ops,
           parens); reject `@`, calls, attribute access, dunders, >300 chars; evaluate only with
           `engine="numexpr"`.
-    - [ ] `query_data`: read-only `sample|describe|value_counts`, row cap via `limit`.
-    - [ ] `clean_dynamic`: apply `CleanOp` list per-op (reject individually with reason);
+    - [x] `query_data`: read-only `sample|describe|value_counts`, row cap via `limit`.
+    - [x] `clean_dynamic`: apply `CleanOp` list per-op (reject individually with reason);
           effect validation (columns ⊇ required, dtypes unchanged, `0 < rows_after ≤ rows_before`);
           batch revert on >90% row drop; verbatim op audit log into `trace`.
-- [ ] **3.4 Thresholds & pre-filter**
-  - [ ] `resolve_thresholds` (`kb.py`): `kb:` refs → `{op, value}`; `unresolved` list (never guess).
-  - [ ] `prefilter` (`prefilter.py`): apply `stage=="prefilter"` rules; report per-category
+- [x] **3.4 Thresholds & pre-filter**
+  - [x] `resolve_thresholds` (dropped - KB removed).
+  - [x] `prefilter` (`prefilter.py`): apply `stage=="prefilter"` rules; report per-category
         before/after; name the culprit rule for any emptied category.
-- [ ] **3.5 Solver**
-  - [ ] `cpsat.py` (§7): `x[c,i]` bools; ExactlyOne / AtMostOne(optional); int scaling (price→cents);
-        derived-expr compiler from the §2 grammar (sum/count linear; min/max via Add{Min,Max}Equality);
-        var_ref constraints via selected-value intvars; compat rules → forbidden-pair clauses +
-        PSU linear rule; top-200 rows/category cap.
-  - [ ] `ranking.py`: single-objective direct optimize; multi-objective K=50 enumeration via
+- [x] **3.5 Solver**
+  - [x] `cpsat.py` (§7): `x[c,i]` bools; ExactlyOne / AtMostOne(optional); int scaling (price→cents);
+        derived-expr compiler (sum linear); top-200 rows/category cap. [x] Core solver; [x] numeric var_ref & coefficient; [x] numeric var_ref capacity headroom. (min/max/count & categorical compatibility rules deferred).
+  - [x] `ranking.py`: single-objective direct optimize; multi-objective K=50 enumeration via
         solution-blocking clauses → decision matrix → `pymcdm` TOPSIS (min-max normalization,
         directions as criterion types); top-3 into `trace`.
-  - [ ] `solve_build` tool: deterministic routing on `len(objectives)`; `SolveReport` incl.
-        `failed_constraints` on INFEASIBLE and `solve_ms`.
-- [ ] **3.6 Tests**
-  - [ ] `tests/test_safe_ops.py`: hostile exprs rejected (`@`, `__class__`, calls, backticks to
+  - [x] `solve_build` tool: deterministic routing on `len(objectives)`; `SolveReport` incl.
+        `failed_constraints` on INFEASIBLE and `solve_ms`. [x] Single-objective routing; [x] multi-objective K-enumeration + TOPSIS ranking.
+- [x] **3.6 Tests**
+  - [x] `tests/test_safe_ops.py`: hostile exprs rejected (`@`, `__class__`, calls, backticks to
         undeclared columns); numexpr-only evaluation; op rejection reasons; >90% drop revert;
         dtype/column invariants.
-  - [ ] `tests/test_cleaning.py`: systematic rules on crafted fixtures incl. real memory.csv quirks.
-  - [ ] `tests/test_cpsat.py`: tiny fixture catalog → expected pick; ExactlyOne; budget; socket
+  - [x] `tests/test_cleaning.py`: systematic rules on crafted fixtures incl. real memory.csv quirks.
+  - [x] `tests/test_cpsat.py`: tiny fixture catalog → expected pick; ExactlyOne; budget; socket
         incompatibility excluded; INFEASIBLE names failing constraint; PSU headroom.
-  - [ ] `tests/test_topsis.py`: weight shifts flip ranking as expected; deterministic output.
-  - [ ] `tests/test_mcp_smoke.py`: spawn server over Stdio, call all 8 tools end-to-end on real data.
+  - [x] `tests/test_topsis.py`: weight shifts flip ranking as expected; deterministic output.
+  - [x] `tests/test_mcp_smoke.py`: spawn server over Stdio, call all 8 tools end-to-end on real data.
 
 **Done when:** MCP smoke test runs the full tool chain (search → load → clean → resolve →
 prefilter → solve) against `data/pc-csv/` and returns a valid build for a hardcoded pivot schema.
