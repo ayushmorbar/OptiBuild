@@ -11,7 +11,6 @@ from app.schema import (
 def make_valid_pivot_schema_data():
     return {
         "user_intent": "Build a gaming PC under $1500",
-        "use_cases": ["gaming_cyberpunk_2077"],
         "decision_variables": [
             {
                 "category": "cpu",
@@ -205,7 +204,7 @@ def test_evaluation_feedback_validation():
                 {
                     "user_phrase": "as quiet as possible",
                     "problem": "no noise-related objective or constraint",
-                    "suggestion": "add minimize objective on a noise-proxy or a kb_ref constraint",
+                    "suggestion": "add minimize objective on a noise-proxy or a literal constraint",
                 }
             ],
             "solver_feedback": {

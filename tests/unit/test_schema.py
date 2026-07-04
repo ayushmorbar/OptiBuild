@@ -4,7 +4,6 @@ from pydantic import ValidationError
 from app.schema import (
     Constraint,
     DerivedVariable,
-    KBRefThreshold,
     LiteralThreshold,
     PivotSchema,
     VarRefThreshold,
@@ -14,7 +13,6 @@ from app.schema import (
 def make_valid_schema_data():
     return {
         "user_intent": "Build a gaming PC under $1500",
-        "use_cases": ["gaming_cyberpunk_2077"],
         "decision_variables": [
             {
                 "category": "cpu",
@@ -122,25 +120,6 @@ def test_derived_variable_formula_grammar():
     assert "formula" in str(exc_info.value) and "restricted grammar" in str(
         exc_info.value
     )
-
-
-def test_kb_ref_threshold_pattern():
-    # Valid kb_ref pattern: kb:<use_case>/<category>.<attribute>
-    t1 = KBRefThreshold(ref="kb:gaming_cyberpunk_2077/video-card.memory")
-    assert t1.kind == "kb_ref"
-    assert t1.ref == "kb:gaming_cyberpunk_2077/video-card.memory"
-
-    # Malformed ref: missing kb: prefix
-    with pytest.raises(ValidationError):
-        KBRefThreshold(ref="gaming_cyberpunk_2077/video-card.memory")
-
-    # Malformed ref: missing slash
-    with pytest.raises(ValidationError):
-        KBRefThreshold(ref="kb:gaming_cyberpunk_2077_video-card.memory")
-
-    # Malformed ref: trailing dot or spaces
-    with pytest.raises(ValidationError):
-        KBRefThreshold(ref="kb:gaming_cyberpunk_2077/video-card.")
 
 
 def test_dangling_objective_rejected():
@@ -266,16 +245,6 @@ def test_constraint_stage_truth_table():
         is_hard=True,
     )
     assert c1.stage == "prefilter"
-
-    # 2. single-component + kb_ref + hard -> "prefilter"
-    c2 = Constraint(
-        name="c2",
-        left_side="video-card.memory",
-        operator=">=",
-        right_side=KBRefThreshold(kind="kb_ref", ref="kb:gaming/video-card.memory"),
-        is_hard=True,
-    )
-    assert c2.stage == "prefilter"
 
     # 3. single-component + var_ref + hard -> "solver"
     c3 = Constraint(
