@@ -133,12 +133,12 @@ prefilter → solve) against `data/pc-csv/` and returns a valid build for a hard
 
 ## Phase 4 — Solver Specialist Agent (`solver_app/`)
 
-- [ ] **4.1 Gates** (`gates.py`, §6): pure functions over `LoadReport` —
-  - [ ] Gate 1: all non-optional decision vars fully covered?
-  - [ ] Gate 2: dependency closure of missing terms through derived vars; poisoned
+- [x] **4.1 Gates** (`gates.py`, §6): pure functions over `LoadReport` —
+  - [x] Gate 1: all non-optional decision vars fully covered?
+  - [x] Gate 2: dependency closure of missing terms through derived vars; poisoned
         objective/constraint → build `MISSING_DATA` feedback (what's missing + what references it);
         else strip descriptive attrs + log drop.
-  - [ ] `tests/test_gates.py`: truth table incl. closure-poisoning and optional-category cases.
+  - [x] `tests/test_gates.py`: truth table incl. closure-poisoning and optional-category cases.
 - [ ] **4.2 Dynamic-clean op planning** (`dynamic_clean_prompt.py`, §6): prompt contract —
       inspect via `query_data` (samples/value_counts on constraint-relevant columns), emit a
       `CleanOp` list with `rationale`; user text only inside `<user_request>` block.
