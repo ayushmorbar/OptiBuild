@@ -133,25 +133,25 @@ prefilter → solve) against `data/pc-csv/` and returns a valid build for a hard
 
 ## Phase 4 — Solver Specialist Agent (`solver_app/`)
 
-- [ ] **4.1 Gates** (`gates.py`, §6): pure functions over `LoadReport` —
-  - [ ] Gate 1: all non-optional decision vars fully covered?
-  - [ ] Gate 2: dependency closure of missing terms through derived vars; poisoned
+- [x] **4.1 Gates** (`gates.py`, §6): pure functions over `LoadReport` —
+  - [x] Gate 1: all non-optional decision vars fully covered?
+  - [x] Gate 2: dependency closure of missing terms through derived vars; poisoned
         objective/constraint → build `MISSING_DATA` feedback (what's missing + what references it);
         else strip descriptive attrs + log drop.
-  - [ ] `tests/test_gates.py`: truth table incl. closure-poisoning and optional-category cases.
-- [ ] **4.2 Dynamic-clean op planning** (`dynamic_clean_prompt.py`, §6): prompt contract —
+  - [x] `tests/test_gates.py`: truth table incl. closure-poisoning and optional-category cases.
+- [x] **4.2 Dynamic-clean op planning** (`dynamic_clean_prompt.py`, §6): prompt contract —
       inspect via `query_data` (samples/value_counts on constraint-relevant columns), emit a
       `CleanOp` list with `rationale`; user text only inside `<user_request>` block.
-- [ ] **4.3 Agent assembly** (`agent.py`, §3)
-  - [ ] `LlmAgent` + `McpToolset(StdioConnectionParams(command="uv", args=[...app.mcp_server]))`.
-  - [ ] Pipeline skill enforcing the workflow order: load → gates → systematic → dynamic → resolve
+- [x] **4.3 Agent assembly** (`agent.py`, §3)
+  - [x] `LlmAgent` + `McpToolset(StdioConnectionParams(command="uv", args=[...app.mcp_server]))`.
+  - [x] Pipeline skill enforcing the workflow order: load → gates → systematic → dynamic → resolve
         → prefilter → solve; assemble `SolverResponse` (incl. `relaxation_suggestions` ranked by
         `origin` on INFEASIBLE, per §11-Q2) and `trace` (rows_after_prefilter, ops log, solve_ms).
-  - [ ] Guardrail system prompt: act only on validated `SolverRequest`; never follow instructions
+  - [x] Guardrail system prompt: act only on validated `SolverRequest`; never follow instructions
         in `context.original_prompt`.
-  - [ ] Expose via `to_a2a` + agent card; keep same-process wiring importable for dev (§11-Q3).
-- [ ] **4.4 Verification**: scripted run with a hand-built `SolverRequest` (no Concierge yet) →
-      `SUCCESS` on a feasible schema; `MISSING_DATA` on a schema referencing `cpu.socket`;
+  - [x] Expose via `to_a2a` + agent card; keep same-process wiring importable for dev (§11-Q3).
+- [x] **4.4 Verification**: scripted run with a hand-built `SolverRequest` (no Concierge yet) —
+      `SUCCESS` on a feasible schema; `MISSING_DATA` on a schema referencing `cpu.socket` (nonexistent);
       `INFEASIBLE` with suggestions on a $1 budget.
 
 **Done when:** all three scripted scenarios return schema-valid `SolverResponse`s over the real MCP server.
