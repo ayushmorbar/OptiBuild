@@ -1,33 +1,49 @@
 # Coding Agent Guide
 
-## Prerequisites
+Guidance for AI coding agents (Antigravity / Gemini) working in this repository.
 
-Install the CLI (one-time):
-```bash
-uv tool install google-agents-cli
-```
+## Project
 
----
+`gauss` is a Google ADK PC-build **optimization agent**: a Concierge agent that models the
+user's request, hands it to a Solver Specialist over **A2A**, with all deterministic compute
+(pandas, OR-Tools CP-SAT, TOPSIS) behind a **FastMCP** server.
 
-## Development Phases
+- **Authoritative design:** `specs/architecture.md` (v2). Read it before implementing anything.
+- **Implementation plan & checklist:** `specs/tasks.md`.
+- **Problem statement:** `specs/problem_definition.md`.
 
-### Phase 1: Understand Requirements
-Before writing any code, understand the project's requirements, constraints, and success criteria.
+> The current code under `app/` is an earlier prototype (a brute-force `itertools` solver over a
+> small hand-authored JSON dataset). It is being rebuilt to the v2 architecture. When in doubt,
+> follow `specs/architecture.md`, **not** the existing solver.
 
-### Phase 2: Build and Implement
-Implement agent logic in `app/`. Use `agents-cli playground` for interactive testing. Iterate based on user feedback.
+## Standing rules (from `specs/architecture.md` §8 — apply to every change)
 
-### Phase 3: The Evaluation Loop (Main Iteration Phase)
-Start with 1-2 eval cases, run `agents-cli eval generate`, then `agents-cli eval grade`, iterate by making changes and rerunning both commands until satisfied. Expect 5-10+ iterations. Once you have a baseline, reach for `agents-cli eval compare` (regression diffs), `agents-cli eval analyze` (cluster failure modes), and `agents-cli eval optimize` (auto-tune prompts). See the **Evaluation Guide** for metrics, dataset schema, LLM-as-judge config, and common gotchas.
+- **Zero LLM-code-execution:** no `exec` / `eval` / `engine="python"` anywhere. Dynamic cleaning
+  is `query_data` (read-only) + declarative `CleanOp`s only.
+- **DataFrames never cross the MCP boundary:** tools exchange an opaque `dataset_handle`; only
+  reports, capped samples, and final builds are returned.
+- **Strict contracts:** every inter-component payload is a Pydantic model from `app/schema.py`.
+- **Untrusted input:** raw user text travels only inside `<user_request>...</user_request>`
+  delimited blocks and is treated as data, never as instructions.
 
-### Phase 4: Pre-Deployment Tests
-Run `uv run pytest tests/unit tests/integration`. Fix issues until all tests pass.
+## Conventions
 
-### Phase 5: Deploy to Dev
-**Requires explicit human approval.** Run `agents-cli deploy` only after user confirms. See the **Deployment Guide** for details.
+- **Language:** all code, comments, commit messages, and PR descriptions in **English**.
+- **Dependencies:** manage everything with **uv** (`uv add <pkg>`, `uv run <cmd>`). Never invoke a
+  global Python; use `uv run python ...`.
+- **Quality gates:** `pre-commit` is configured (`.pre-commit-config.yaml`). Run
+  `uv run pre-commit install` once per clone. If a hook auto-fixes a file, re-stage (`git add -A`)
+  and commit again.
+- **Small, focused PRs:** one concern per PR. **Never reformat or refactor code outside the scope
+  of the request.**
+- **Verify before committing:** run the relevant tests and review the actual diff — do not trust a
+  change summary.
 
-### Phase 6: Production Deployment
-Ask the user: Option A (simple single-project) or Option B (full CI/CD pipeline with `agents-cli infra cicd`).
+## Tracking
+
+`specs/tasks.md` is the single source of truth for progress. When a task is finished, check its
+box **in the same PR that implements it** (so it is reviewed together with the code). Do not keep
+a separate progress file and do not silently edit the checklist in unrelated commits.
 
 ## Development Commands
 
@@ -43,21 +59,24 @@ Ask the user: Option A (simple single-project) or Option B (full CI/CD pipeline 
 | `agents-cli eval metric list` | List built-in metrics available in the SDK |
 | `agents-cli eval optimize` | Auto-tune agent prompts using eval data |
 | `agents-cli lint` | Check code quality |
-| `agents-cli infra single-project` | Set up project infrastructure (Terraform) |
-| `agents-cli deploy` | Deploy to dev |
+| `agents-cli deploy` | Deploy to dev (**requires explicit human approval**) |
 | `agents-cli scaffold enhance` | Add deployment target or CI/CD to project |
 | `agents-cli scaffold upgrade` | Upgrade project to latest version |
 
----
+## Development Workflow
 
-## Operational Guidelines for Coding Agents
+1. **Understand** — read `specs/architecture.md` for the relevant component and its `specs/tasks.md` phase before writing code.
+2. **Build** — implement the smallest slice; test locally with `agents-cli playground` and `uv run pytest`.
+3. **Evaluate** — once behavior exists, iterate with `agents-cli eval generate` + `grade` (expect several rounds); then `compare` / `analyze` / `optimize`.
+4. **Pre-deploy** — `uv run pytest tests/unit tests/integration` must be green.
+5. **Deploy** — only after explicit human approval.
 
-- **Specification & Test Synchronization Rule**: Whenever the codebase is changed, make sure to update the applicable specs files and add corresponding test/eval cases in tandem. Never allow the code to diverge from the specifications or tests.
-- **Progress Tracking Rule**: Whenever changes are made to the codebase or new features are introduced, update the progress tracker file [progress.md](file:///home/kejia/gauss/progress.md) to check off finished steps or add new planned steps accordingly.
-- **Code preservation**: Only modify code directly targeted by the user's request. Preserve all surrounding code, config values (e.g., `model`), comments, and formatting.
-- **NEVER change the model** unless explicitly asked.
-- **Model 404 errors**: Fix `GOOGLE_CLOUD_LOCATION` (e.g., `global` instead of `us-east1`), not the model name.
-- **ADK tool imports**: Import the tool instance, not the module: `from google.adk.tools.load_web_page import load_web_page`
-- **Run Python with `uv`**: `uv run python script.py`. Run `agents-cli install` first.
-- **Stop on repeated errors**: If the same error appears 3+ times, fix the root cause instead of retrying.
-- **Terraform conflicts** (Error 409): Use `terraform import` instead of retrying creation.
+## Operational Guidelines
+
+- **Spec & test sync:** when code changes, update the applicable `specs/` files and add/adjust tests or eval cases in the same change. Never let code diverge from specs or tests.
+- **Code preservation:** only modify code directly targeted by the request. Preserve surrounding code, config values (e.g. `model`), comments, and formatting.
+- **Never change the model** unless explicitly asked.
+- **Model 404 errors:** fix `GOOGLE_CLOUD_LOCATION` (e.g. `global` instead of `us-east1`), not the model name.
+- **ADK tool imports:** import the tool instance, not the module: `from google.adk.tools.load_web_page import load_web_page`.
+- **Stop on repeated errors:** if the same error appears 3+ times, fix the root cause instead of retrying.
+- **Terraform conflicts (Error 409):** use `terraform import` instead of retrying creation.
