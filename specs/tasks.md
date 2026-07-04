@@ -139,12 +139,12 @@ prefilter → solve) against `data/pc-csv/` and returns a valid build for a hard
         objective/constraint → build `MISSING_DATA` feedback (what's missing + what references it);
         else strip descriptive attrs + log drop.
   - [x] `tests/test_gates.py`: truth table incl. closure-poisoning and optional-category cases.
-- [ ] **4.2 Dynamic-clean op planning** (`dynamic_clean_prompt.py`, §6): prompt contract —
+- [x] **4.2 Dynamic-clean op planning** (`dynamic_clean_prompt.py`, §6): prompt contract —
       inspect via `query_data` (samples/value_counts on constraint-relevant columns), emit a
       `CleanOp` list with `rationale`; user text only inside `<user_request>` block.
 - [ ] **4.3 Agent assembly** (`agent.py`, §3)
   - [ ] `LlmAgent` + `McpToolset(StdioConnectionParams(command="uv", args=[...app.mcp_server]))`.
-  - [ ] Pipeline skill enforcing the workflow order: load → gates → systematic → dynamic → resolve
+  - [x] Pipeline skill enforcing the workflow order: load → gates → systematic → dynamic → resolve
         → prefilter → solve; assemble `SolverResponse` (incl. `relaxation_suggestions` ranked by
         `origin` on INFEASIBLE, per §11-Q2) and `trace` (rows_after_prefilter, ops log, solve_ms).
   - [ ] Guardrail system prompt: act only on validated `SolverRequest`; never follow instructions
