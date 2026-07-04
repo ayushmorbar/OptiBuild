@@ -207,4 +207,4 @@ tools/a2a-inspector/
 docs/
 
 # 5dgai: raw PC-components CSVs (large, not versioned)
-/data/
+/data/pc-csv/*.csv
