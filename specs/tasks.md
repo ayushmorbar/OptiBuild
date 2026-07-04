@@ -163,11 +163,10 @@ prefilter → solve) against `data/pc-csv/` and returns a valid build for a hard
 - [x] **5.1 Prompt assets** (`app/prompt_contracts.py`, §2b): stage1–4 extraction contracts
       (ROLE/INPUT/VOCABULARY/INVARIANTS/OUTPUT/REPAIR blocks), LLM-judge prompt, guardrails block
       (scope lock, refuse OC/thermal-override/DRM, no prompt disclosure).
-- [ ] **5.2 Staged modelization** (`modelization.py`, §2b)
-  - [ ] Stage 1 decision vars + `use_cases` (vocabulary = metadata catalog + KB slugs).
-  - [ ] Stage 2 derived vars (grammar BNF in prompt); Stage 3 objectives+weights; Stage 4
-        constraints (fuzzy → `kb_ref`, never invented numbers).
-  - [ ] Structured output = the Phase-1 submodels; REPAIR mode re-runs only `target_stages`.
+- [x] **5.2 Staged modelization** (`modelization.py`, §2b)
+  - [x] Stage 1 decision vars (vocabulary = metadata catalog). (use_cases dropped).
+  - [x] Stage 2 derived vars, Stage 3 objectives+weights, Stage 4 constraints (no kb_ref).
+  - [x] Structured output = the Phase-1 submodels; REPAIR mode re-runs only `target_stages`.
 - [ ] **5.3 Evaluator** (`evaluator.py`, §5)
   - [x] Deterministic completeness (resolvability verification) and coherence
         (contradiction scan, weight/direction checks).
