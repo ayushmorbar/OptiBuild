@@ -15,6 +15,15 @@ operations, which is token-allowlisted and evaluated under the restricted `numex
 never `exec`/`eval` (§8). Derived variables and constraints are likewise grammar-validated
 declarations, not code (§2b-c).
 
+**No curated use-case knowledge base.** Per owner decision (2026-07-04), this supersedes §2b-b,
+the `KBRefThreshold` threshold kind (§2), the `resolve_thresholds` MCP tool (§4), workflow node G
+(§1), and `data/knowledge_base.json`: qualitative intent ("a gaming PC") is modelled as
+optimization **objectives** (maximise a proxy over real columns, within the budget), and explicit
+numbers as literal constraints — the agent never looks up or invents per-use-case hardware minima.
+Column matching stays metadata-driven (§6). The only retained factual lookup is the
+`microarchitecture → socket` map, moved to `data/compatibility_rules.json` (§7). Sections below
+that still describe the KB are kept for historical context but are overridden by this note.
+
 ---
 
 ## 1. System Overview
@@ -381,19 +390,30 @@ cheaper and far less regression-prone than one-shot re-prompting.
 Stage 1 also emits `use_cases` because detecting "this is a Cyberpunk 2077 gaming build" is what
 determines which categories are in play.
 
-### (b) Fuzzy intent → numeric thresholds (workflow node G)
+### (b) Fuzzy intent → objectives, not looked-up thresholds (owner decision 2026-07-04)
 
-**Decision: the Concierge never invents numbers; it emits symbolic `kb:` references.**
-"Gaming Cyberpunk 2077" becomes constraints like
-`video-card.memory >= kb:gaming_cyberpunk_2077/video-card.memory`. The knowledge base
-(`data/knowledge_base.json`, curated JSON) maps use-case slugs → per-`category.attribute`
-numeric thresholds (e.g. `{"video-card.memory": {">=": 8}, "cpu.core_count": {">=": 6}}`).
-Node G is the deterministic `resolve_thresholds` MCP tool on the solver side — exactly where
-the workflow places it (`n7 → G → H`). Rationale: hallucinated hardware requirements are the
-biggest correctness risk in this system; a curated lookup makes thresholds auditable and
-testable. If a detected use case has no KB entry, stage 1 must pick the nearest existing slug or
-leave `use_cases` empty — an unresolvable `kb:` ref at solve time returns `MISSING_DATA`-style
-feedback rather than a guess.
+**Decision: the Concierge turns qualitative intent into optimization *objectives*, not curated
+numeric thresholds.** The per-use-case knowledge base of hardware minima (the earlier `kb:` /
+`knowledge_base.json` design) is dropped — the space of use cases and goals is unbounded and
+unmaintainable. Instead:
+
+- **Qualitative goals become objectives.** "A gaming PC" → `maximize` a GPU-performance proxy over
+  real columns (e.g. `video-card.memory`), bounded by the budget constraint. The optimizer returns
+  the best build available in the data — no invented numbers.
+- **Explicit numeric requirements become literal constraints** (`LiteralThreshold`): "16 GB RAM"
+  → `memory.total >= 16`.
+- **Column matching is metadata-driven** (§6): the agent picks which CSV column satisfies each
+  decision variable from `metadata.json`, not from a KB.
+
+Using the LLM's general knowledge to *orient an objective* ("gaming favours the GPU → maximise
+it") is safe; using it to *invent a hard numeric threshold* is the hallucination risk we avoid by
+never requiring one. A genuinely hard qualitative requirement ("must run game X at ultra") is
+either modelled as an objective or bounced to the user for a concrete number — never guessed.
+
+Consequently the `KBRefThreshold` union member (§2), the `resolve_thresholds` MCP tool (§4),
+workflow node G (§1), and `data/knowledge_base.json` are removed. The only factual lookup retained
+is the `microarchitecture → socket` map — a hardware-compatibility fact (cpu.csv has no socket
+column) — relocated to `data/compatibility_rules.json` (§7).
 
 ### (c) Derived variables: LLM-declared, code-defined
 
