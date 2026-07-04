@@ -205,3 +205,6 @@ tools/a2a-inspector/
 
 # Ignore docs folder
 docs/
+
+# 5dgai: raw PC-components CSVs (large, not versioned)
+/data/
