@@ -1,0 +1,93 @@
+# Schema definition for the PC components database (app/data/components.json)
+# This schema defines the structure, types, and expected specifications for all components.
+
+categories:
+  cpus:
+    properties:
+      id: { type: "string", description: "Unique identifier, e.g., cpu_ryzen5_7600" }
+      name: { type: "string", description: "Full CPU model name" }
+      price: { type: "number", description: "Price in USD" }
+      brand: { type: "string", enum: ["AMD", "Intel"] }
+      specs:
+        socket: { type: "string", enum: ["AM5", "LGA1700"], description: "CPU socket type" }
+        power_draw_w: { type: "integer", description: "TDP in Watts" }
+        cores: { type: "integer", description: "Number of physical cores" }
+        performance_rating: { type: "integer", description: "Performance indicator score (1-100)" }
+      link: { type: "string", format: "uri" }
+
+  gpus:
+    properties:
+      id: { type: "string", description: "Unique identifier, e.g., gpu_rtx4060" }
+      name: { type: "string", description: "Full GPU name" }
+      price: { type: "number", description: "Price in USD" }
+      brand: { type: "string", enum: ["NVIDIA", "AMD"] }
+      specs:
+        power_draw_w: { type: "integer", description: "TDP in Watts" }
+        vram_gb: { type: "integer", description: "VRAM capacity in GB" }
+        performance_rating: { type: "integer", description: "Performance indicator score (1-100)" }
+      link: { type: "string", format: "uri" }
+
+  motherboards:
+    properties:
+      id: { type: "string" }
+      name: { type: "string" }
+      price: { type: "number" }
+      brand: { type: "string" }
+      specs:
+        socket: { type: "string", enum: ["AM5", "LGA1700"] }
+        form_factor: { type: "string", enum: ["ATX", "Micro-ATX", "Mini-ITX"] }
+        ram_generation: { type: "string", enum: ["DDR4", "DDR5"] }
+      link: { type: "string", format: "uri" }
+
+  ram:
+    properties:
+      id: { type: "string" }
+      name: { type: "string" }
+      price: { type: "number" }
+      brand: { type: "string" }
+      specs:
+        generation: { type: "string", enum: ["DDR4", "DDR5"] }
+        capacity_gb: { type: "integer" }
+      link: { type: "string", format: "uri" }
+
+  storage:
+    properties:
+      id: { type: "string" }
+      name: { type: "string" }
+      price: { type: "number" }
+      brand: { type: "string" }
+      specs:
+        type: { type: "string", enum: ["SSD", "HDD"] }
+        capacity_gb: { type: "integer" }
+      link: { type: "string", format: "uri" }
+
+  psus:
+    properties:
+      id: { type: "string" }
+      name: { type: "string" }
+      price: { type: "number" }
+      brand: { type: "string" }
+      specs:
+        wattage: { type: "integer" }
+      link: { type: "string", format: "uri" }
+
+  cases:
+    properties:
+      id: { type: "string" }
+      name: { type: "string" }
+      price: { type: "number" }
+      brand: { type: "string" }
+      specs:
+        supported_form_factors: { type: "array", items: { type: "string" } }
+      link: { type: "string", format: "uri" }
+
+  coolers:
+    properties:
+      id: { type: "string" }
+      name: { type: "string" }
+      price: { type: "number" }
+      brand: { type: "string" }
+      specs:
+        supported_sockets: { type: "array", items: { type: "string" } }
+        type: { type: "string", enum: ["air", "liquid"] }
+      link: { type: "string", format: "uri" }
