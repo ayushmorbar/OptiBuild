@@ -285,3 +285,49 @@ def test_constraint_stage_truth_table():
         is_hard=False,
     )
     assert c6.stage == "solver"
+
+
+def test_constraint_coefficient():
+    # 1. Default coefficient is 1.0
+    c1 = Constraint(
+        name="c1",
+        left_side="cpu.price",
+        operator="<=",
+        right_side=LiteralThreshold(kind="literal", value=300),
+        is_hard=True,
+    )
+    assert c1.coefficient == 1.0
+    assert c1.stage == "prefilter"
+
+    # 2. Set coefficient round-trips
+    c2 = Constraint(
+        name="c2",
+        left_side="cpu.price",
+        operator="<=",
+        right_side=LiteralThreshold(kind="literal", value=300),
+        is_hard=True,
+        coefficient=1.3,
+    )
+    assert c2.coefficient == 1.3
+    # Non-default coefficient makes stage "solver" instead of "prefilter"
+    assert c2.stage == "solver"
+
+    # 3. Coefficient <= 0 is rejected
+    with pytest.raises(ValidationError):
+        Constraint(
+            name="c3",
+            left_side="cpu.price",
+            operator="<=",
+            right_side=LiteralThreshold(kind="literal", value=300),
+            is_hard=True,
+            coefficient=0.0,
+        )
+    with pytest.raises(ValidationError):
+        Constraint(
+            name="c4",
+            left_side="cpu.price",
+            operator="<=",
+            right_side=LiteralThreshold(kind="literal", value=300),
+            is_hard=True,
+            coefficient=-0.5,
+        )

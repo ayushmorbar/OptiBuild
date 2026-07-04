@@ -140,6 +140,11 @@ class Constraint(BaseModel):
         default=True,
         description="Hard → CP-SAT must satisfy; soft → penalty objective.",
     )
+    coefficient: float = Field(
+        default=1.0,
+        gt=0.0,
+        description="Multiplier on the right-hand side: left <op> coefficient * right, e.g. 1.3 for PSU headroom.",
+    )
     origin: Literal[
         "user_explicit", "kb_derived", "compatibility", "system_default"
     ] = Field(
@@ -156,7 +161,12 @@ class Constraint(BaseModel):
         concrete = self.right_side.kind == "literal"
         return (
             "prefilter"
-            if (single_component and concrete and self.is_hard)
+            if (
+                single_component
+                and concrete
+                and self.is_hard
+                and self.coefficient == 1.0
+            )
             else "solver"
         )
 
