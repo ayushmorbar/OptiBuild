@@ -83,9 +83,9 @@ architecture validates against its model.
 
 ## Phase 3 — FastMCP Server (`app/mcp_server/`) — 8 tools (§4)
 
-- [ ] **3.1 Infrastructure**
-  - [ ] `store.py`: session-scoped `dataset_handle` registry (create/get/copy/replace; TTL or explicit release).
-  - [ ] `server.py` + `__main__.py`: FastMCP registration, Stdio entrypoint
+- [x] **3.1 Infrastructure**
+  - [x] `store.py`: session-scoped `dataset_handle` registry (create/get/copy/replace; TTL or explicit release).
+  - [x] `server.py` + `__main__.py`: FastMCP registration, Stdio entrypoint
         (`uv run python -m app.mcp_server`).
 - [ ] **3.2 Data discovery & loading**
   - [ ] `search_datasets` (`catalog.py`): exact key → synonym → fuzzy-string match; RAG fallback stubbed
