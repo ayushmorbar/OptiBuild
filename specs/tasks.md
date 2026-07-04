@@ -160,7 +160,7 @@ prefilter → solve) against `data/pc-csv/` and returns a valid build for a hard
 
 ## Phase 5 — Concierge Agent (`app/`)
 
-- [ ] **5.1 Prompt assets** (`app/prompts/`, §2b): stage1–4 extraction contracts
+- [x] **5.1 Prompt assets** (`app/prompt_contracts.py`, §2b): stage1–4 extraction contracts
       (ROLE/INPUT/VOCABULARY/INVARIANTS/OUTPUT/REPAIR blocks), LLM-judge prompt, guardrails block
       (scope lock, refuse OC/thermal-override/DRM, no prompt disclosure).
 - [ ] **5.2 Staged modelization** (`modelization.py`, §2b)
