@@ -172,16 +172,16 @@ prefilter → solve) against `data/pc-csv/` and returns a valid build for a hard
         (contradiction scan, weight/direction checks).
   - [ ] LLM judge for intent fidelity (temp 0, structured output), gated to run only after
         deterministic dims pass (§11-Q4).
-  - [ ] Emit `EvaluationFeedback` with `target_stages`.
+  - [x] Emit `EvaluationFeedback` with `target_stages`.
   - [x] `tests/test_evaluator.py`: deterministic dims on fixture schemas (contradictory constraints → coherence violation).
 - [ ] **5.4 Orchestration loop** (`agent.py`, §3 + §5)
-  - [ ] Concierge `LlmAgent` + Evaluator wired as LoopAgent; shared 3-iteration budget covering
+  - [x] Deterministic Concierge loop (in `app/concierge.py`); shared 3-iteration budget covering
         both evaluator failures and solver `INFEASIBLE`/`MISSING_DATA` bounces.
+  - [ ] Concierge `LlmAgent` + Evaluator ADK/A2A assembly.
   - [ ] Budget sanitization at intake (`0 ≤ budget ≤ 10^6`, §8).
-  - [ ] A2A client call to Solver (env-flag: same-process for dev, HTTP A2A for demo); convert
+  - [ ] A2A client call to Solver (env-flag: same-process for dev, HTTP A2A for dev/demo); convert
         solver `feedback` → `EvaluationFeedback.solver_feedback`.
-  - [ ] Exit paths: SUCCESS → present build (selections table, derived values, ranking note,
-        trace summary); budget exhausted → targeted user questions from last `feedback_details`.
+  - [x] Exit paths: SUCCESS → present build; budget exhausted → targeted user questions from last `feedback_details`.
 
 **Done when:** `adk web` (dev wiring): "quiet gaming PC for Cyberpunk 2077 under $1500" produces a
 schema that passes the evaluator ≤3 iterations and returns a presented build end-to-end.
