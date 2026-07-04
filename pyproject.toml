@@ -3,7 +3,11 @@ name = "gauss"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "Your Name", email = "your@email.com"},
+    {name = "Yanis", email = "yanisblotelmazouzi@gmail.com"},
+    {name = "Kebei", email = "youremail@gmail.com"},
+    {name = "Alex", email = "youremail@gmail.com"},
+    {name = "Ayush", email = "youremail@gmail.com"},
+    {name = "Palak", email = "youremail@gmail.com"}
 ]
 
 
@@ -94,6 +98,6 @@ pythonpath = "."
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.hatch.build.targets.wheel]
-packages = ["app","frontend"]
+packages = ["app"]
 
 
