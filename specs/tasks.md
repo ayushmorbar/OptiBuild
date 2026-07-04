@@ -32,28 +32,28 @@ gate — don't start the next phase until it holds.
 
 ## Phase 1 — Contracts (`app/schema.py`) — everything else depends on this
 
-- [ ] **1.1 Pivot schema** (§2, code already specified — transcribe and keep in sync):
-  - [ ] `AttributeRequirement`, `DecisionVariable` (category regex, `optional` flag).
-  - [ ] `DerivedVariable` + `_FORMULA_RE` restricted grammar validator.
-  - [ ] `Objective` (direction, weight > 0, `rationale`).
-  - [ ] `Threshold` discriminated union: `LiteralThreshold` / `KBRefThreshold` (kb: ref regex) / `VarRefThreshold`.
-  - [ ] `Constraint` (+ derived `stage` property: prefilter vs solver) with `origin` provenance.
-  - [ ] `PivotSchema` root: `check_references` cross-ref validator, `normalize_weights`.
-- [ ] **1.2 A2A models** (§3): `SolverRequest`, `SolverResponse` (status enum
+- [x] **1.1 Pivot schema** (§2, code already specified — transcribe and keep in sync):
+  - [x] `AttributeRequirement`, `DecisionVariable` (category regex, `optional` flag).
+  - [x] `DerivedVariable` + `_FORMULA_RE` restricted grammar validator.
+  - [x] `Objective` (direction, weight > 0, `rationale`).
+  - [x] `Threshold` discriminated union: `LiteralThreshold` / `KBRefThreshold` (kb: ref regex) / `VarRefThreshold`.
+  - [x] `Constraint` (+ derived `stage` property: prefilter vs solver) with `origin` provenance.
+  - [x] `PivotSchema` root: `check_references` cross-ref validator, `normalize_weights`.
+- [x] **1.2 A2A models** (§3): `SolverRequest`, `SolverResponse` (status enum
       `SUCCESS|INFEASIBLE|MISSING_DATA|ERROR`, `result`, `feedback` with
       `missing_attributes`/`failed_constraints`/`relaxation_suggestions`, `trace`).
-- [ ] **1.3 Evaluator feedback model** (§5): `EvaluationFeedback` (scores, `target_stages`,
+- [x] **1.3 Evaluator feedback model** (§5): `EvaluationFeedback` (scores, `target_stages`,
       `feedback_details`, `solver_feedback`).
-- [ ] **1.4 CleanOp vocabulary** (§4): discriminated union `filter_rows | drop_nulls | map_values | clip_range`,
+- [x] **1.4 CleanOp vocabulary** (§4): discriminated union `filter_rows | drop_nulls | map_values | clip_range`,
       `extra="forbid"`; plus MCP report models (`LoadReport`, `CleanReport`, `DynCleanReport`,
       `QueryReport`, `ResolveReport`, `PrefilterReport`, `SolveReport`, `DatasetMatch`).
-- [ ] **1.5 Tests — `tests/test_schema.py`**
-  - [ ] Valid full `PivotSchema` round-trips (model_dump → model_validate).
-  - [ ] Formula grammar: accepts `sum(cpu.price, video-card.price)`; rejects lambdas, calls, imports.
-  - [ ] Dangling refs rejected (objective → unknown var; constraint var_ref → unknown term).
-  - [ ] Weights auto-normalize to Σ=1; weight ≤ 0 rejected.
-  - [ ] `Constraint.stage` truth table (single-component+literal+hard → prefilter; derived/var_ref/soft → solver).
-  - [ ] `kb:` ref pattern accepts/rejects correctly; `CleanOp` rejects unknown ops and extra fields.
+- [x] **1.5 Tests — `tests/unit/test_schema.py`, `test_contracts.py`, `test_mcp_contracts.py`**
+  - [x] Valid full `PivotSchema` round-trips (model_dump → model_validate).
+  - [x] Formula grammar: accepts `sum(cpu.price, video-card.price)`; rejects lambdas, calls, imports.
+  - [x] Dangling refs rejected (objective → unknown var; constraint var_ref → unknown term).
+  - [x] Weights auto-normalize to Σ=1; weight ≤ 0 rejected.
+  - [x] `Constraint.stage` truth table (single-component+literal+hard → prefilter; derived/var_ref/soft → solver).
+  - [x] `kb:` ref pattern accepts/rejects correctly; `CleanOp` rejects unknown ops and extra fields.
 
 **Done when:** `pytest tests/test_schema.py` green; every §2/§3/§4/§5 JSON example in the
 architecture validates against its model.
@@ -62,20 +62,20 @@ architecture validates against its model.
 
 ## Phase 2 — Data Assets (`data/`)
 
-- [ ] **2.1 Dataset catalog `data/pc-csv/metadata.json`** (§6)
-  - [ ] Script (`scripts/gen_metadata.py`) to scan all 25 CSVs → columns, inferred types, `record_count`.
-  - [ ] Hand-author per-dataset `description`, `synonyms`, `required` flags, `known_quirks`
+- [x] **2.1 Dataset catalog `data/pc-csv/metadata.json`** (§6)
+  - [x] Script (`scripts/gen_metadata.py`) to scan all 25 CSVs → columns, inferred types, `record_count`.
+  - [x] Hand-author per-dataset `description`, `synonyms`, `required` flags, `known_quirks`
         (at minimum: cpu has no `socket`; memory packs `speed`="5,6000" & `modules`="2,16";
         case has no GPU-length column).
-- [ ] **2.2 Knowledge base `data/knowledge_base.json`** (§2b-b, §7)
-  - [ ] ~10 use-case entries (5 games × 2 tiers + office / video editing / ML dev — confirm list, §11-Q1),
-        each: `aliases`, thresholds keyed `category.attribute` → `{op, value}`.
-  - [ ] `microarchitecture → socket` map (Zen 4/Zen 5 → AM5, etc.) covering every value present in `cpu.csv`.
-- [ ] **2.3 Compatibility rules `data/compatibility_rules.json`** (§7): declarative table for
-      cpu↔motherboard socket (via KB map), motherboard↔case form factor, PSU ≥ 1.3 × Σ tdp.
-- [ ] **2.4 Tests — `tests/test_data_assets.py`**: metadata matches actual CSV headers; every KB
-      threshold references an existing `category.attribute`; socket map covers all distinct
-      `cpu.microarchitecture` values; compat rules reference existing columns only.
+- **2.2 Knowledge base — DROPPED** (owner decision 2026-07-04; see architecture.md §2b-b). No
+  per-use-case threshold KB: qualitative intent → optimization objectives, explicit numbers →
+  literal constraints. The `microarchitecture → socket` map moves to 2.3.
+- [ ] **2.3 Compatibility rules `data/compatibility_rules.json`** (§7): the `microarchitecture →
+      socket` map (covering every value in `cpu.csv`), plus a declarative table for cpu↔motherboard
+      socket, motherboard↔case form factor, PSU ≥ 1.3 × Σ tdp.
+- [ ] **2.4 Tests — `tests/unit/test_data_assets.py`**: metadata matches actual CSV headers (done
+      in 2.1); socket map covers all distinct `cpu.microarchitecture` values; compat rules
+      reference existing columns only.
 
 **Done when:** asset tests green against the real `data/pc-csv/` files.
 
