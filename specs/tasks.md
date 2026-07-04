@@ -168,6 +168,7 @@ prefilter → solve) against `data/pc-csv/` and returns a valid build for a hard
   - [x] Stage 2 derived vars, Stage 3 objectives+weights, Stage 4 constraints (no kb_ref).
   - [x] Structured output = the Phase-1 submodels; REPAIR mode re-runs only `target_stages`.
   - [x] Lite extraction schemas (`app/extraction_schemas.py`) for Gemini structured output compatibility.
+  - [x] One-shot modelization path (`build_schema_oneshot` / `PivotSchemaLite`) for quota-friendly execution.
 - [ ] **5.3 Evaluator** (`evaluator.py`, §5)
   - [x] Deterministic completeness (resolvability verification) and coherence
         (contradiction scan, weight/direction checks).

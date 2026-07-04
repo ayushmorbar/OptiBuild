@@ -233,3 +233,64 @@ def test_synonym_normalization():
     assert schema.decision_variables[1].required_attributes[0].data_type == "str"
     assert len(schema.objectives) == 1
     assert schema.objectives[0].direction == "minimize"
+
+
+def test_build_schema_oneshot():
+    from app.modelization import build_schema_oneshot
+
+    canned_full_schema = {
+        "user_intent": "Build me a computer under $1500",
+        "decision_variables": CANNED_DECISION_VARIABLES,
+        "derived_variables": CANNED_DERIVED_VARIABLES,
+        "objectives": CANNED_OBJECTIVES,
+        "constraints": CANNED_CONSTRAINTS,
+    }
+
+    def mock_oneshot_extractor(prompt: str) -> dict:
+        return canned_full_schema
+
+    schema = build_schema_oneshot(
+        user_request="Build me a computer under $1500",
+        catalog_summary="cpu: price\nmemory: price",
+        oneshot_extractor=mock_oneshot_extractor,
+    )
+
+    assert isinstance(schema, PivotSchema)
+    assert len(schema.decision_variables) == 2
+    assert len(schema.derived_variables) == 1
+    assert len(schema.objectives) == 1
+    assert len(schema.constraints) == 1
+    assert schema.constraints[0].name == "budget_cap"
+
+
+def test_build_schema_oneshot_skips_invalid():
+    from app.modelization import build_schema_oneshot
+
+    canned_full_schema = {
+        "user_intent": "Build me a computer under $1500",
+        "decision_variables": CANNED_DECISION_VARIABLES,
+        "derived_variables": CANNED_DERIVED_VARIABLES,
+        "objectives": CANNED_OBJECTIVES,
+        "constraints": [
+            {
+                "name": "INVALID CAP NAME WITH SPACES",
+                "left_side": "total_price",
+                "operator": "<=",
+                "right_side": {"kind": "literal", "value": 1500.0},
+                "is_hard": True,
+            },
+            CANNED_CONSTRAINTS[0],
+        ],
+    }
+
+    def mock_oneshot_extractor(prompt: str) -> dict:
+        return canned_full_schema
+
+    schema = build_schema_oneshot(
+        user_request="Build me a computer under $1500",
+        catalog_summary="cpu: price\nmemory: price",
+        oneshot_extractor=mock_oneshot_extractor,
+    )
+
+    assert len(schema.constraints) == 1
+    assert schema.constraints[0].name == "budget_cap"

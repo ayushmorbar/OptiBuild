@@ -47,3 +47,13 @@ class ConstraintLite(BaseModel):
     is_hard: bool = True
     origin: str = "user_explicit"
     coefficient: float = 1.0
+
+
+class PivotSchemaLite(BaseModel):
+    """Lite schema for one-shot extraction of the entire optimization model."""
+
+    user_intent: str
+    decision_variables: list[DecisionVariableLite]
+    derived_variables: list[DerivedVariableLite]
+    objectives: list[ObjectiveLite]
+    constraints: list[ConstraintLite]
