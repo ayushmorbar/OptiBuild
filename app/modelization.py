@@ -134,3 +134,58 @@ def run_modelization(
         objectives=outputs.get(3, []),
         constraints=outputs.get(4, []),
     )
+
+
+def build_schema_oneshot(
+    user_request: str, catalog_summary: str, oneshot_extractor
+) -> PivotSchema:
+    """Extract and compile the entire PivotSchema in one shot."""
+    from app.prompt_contracts import build_oneshot_prompt
+
+    prompt = build_oneshot_prompt(user_request, catalog_summary)
+    raw_schema = oneshot_extractor(prompt)
+
+    raw_dvs = raw_schema.get("decision_variables", [])
+    raw_dervs = raw_schema.get("derived_variables", [])
+    raw_objs = raw_schema.get("objectives", [])
+    raw_consts = raw_schema.get("constraints", [])
+
+    dvs = []
+    for item in raw_dvs:
+        try:
+            norm = normalize_raw_dict(1, item)
+            dvs.append(STAGE_MODELS[1].model_validate(norm))
+        except Exception:
+            pass
+
+    dervs = []
+    for item in raw_dervs:
+        try:
+            norm = normalize_raw_dict(2, item)
+            dervs.append(STAGE_MODELS[2].model_validate(norm))
+        except Exception:
+            pass
+
+    objs = []
+    for item in raw_objs:
+        try:
+            norm = normalize_raw_dict(3, item)
+            objs.append(STAGE_MODELS[3].model_validate(norm))
+        except Exception:
+            pass
+
+    consts = []
+    for item in raw_consts:
+        try:
+            norm = normalize_raw_dict(4, item)
+            consts.append(STAGE_MODELS[4].model_validate(norm))
+        except Exception:
+            pass
+
+    return PivotSchema(
+        user_intent=user_request,
+        decision_variables=dvs,
+        derived_variables=dervs,
+        objectives=objs,
+        constraints=consts,
+    )

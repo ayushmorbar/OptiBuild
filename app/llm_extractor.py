@@ -66,3 +66,40 @@ def make_llm_extractor(model="gemini-flash-latest"):
             return []
 
     return extractor
+
+
+def make_oneshot_extractor(model="gemini-flash-latest"):
+    """Create and return a lazy one-shot extraction callable."""
+    from app.extraction_schemas import PivotSchemaLite
+
+    client = None
+
+    def oneshot(prompt: str) -> dict:
+        nonlocal client
+        if client is None:
+            client = genai.Client()
+
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=PivotSchemaLite,
+                temperature=0.0,
+            ),
+        )
+
+        try:
+            if hasattr(response, "parsed") and response.parsed is not None:
+                parsed = response.parsed
+                return (
+                    parsed.model_dump()
+                    if hasattr(parsed, "model_dump")
+                    else (parsed.__dict__ if hasattr(parsed, "__dict__") else parsed)
+                )
+
+            return json.loads(response.text)
+        except Exception:
+            return {}
+
+    return oneshot

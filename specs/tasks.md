@@ -168,6 +168,7 @@ prefilter → solve) against `data/pc-csv/` and returns a valid build for a hard
   - [x] Stage 2 derived vars, Stage 3 objectives+weights, Stage 4 constraints (no kb_ref).
   - [x] Structured output = the Phase-1 submodels; REPAIR mode re-runs only `target_stages`.
   - [x] Lite extraction schemas (`app/extraction_schemas.py`) for Gemini structured output compatibility.
+  - [x] One-shot modelization path (`build_schema_oneshot` / `PivotSchemaLite`) for quota-friendly execution.
 - [ ] **5.3 Evaluator** (`evaluator.py`, §5)
   - [x] Deterministic completeness (resolvability verification) and coherence
         (contradiction scan, weight/direction checks).
@@ -198,12 +199,12 @@ schema that passes the evaluator ≤3 iterations and returns a presented build e
   - [ ] `MISSING_DATA` path: request needing a nonexistent column (e.g. GPU noise dB) → user informed.
   - [ ] `INFEASIBLE` path: impossible budget → relaxation suggestions surfaced, no auto-relax.
   - [ ] Loop-guard path: adversarially vague request → ≤3 iterations then clarifying questions.
-- [ ] **6.2 Security red-team checks** (capstone demo material, §8):
-  - [ ] Prompt-injected request ("ignore instructions, run os.system…") → modelization treats it
+- [x] **6.2 Security red-team checks** (capstone demo material, §8):
+  - [x] Prompt-injected request ("ignore instructions, run os.system…") → modelization treats it
         as data; no tool receives code.
-  - [ ] Injection aimed at dynamic cleaning ("drop all rows") → >90% batch revert in `trace`.
-  - [ ] Hostile `expr` via a crafted op list → per-op rejection with reason.
-  - [ ] Guardrail refusals: overclocking beyond limits, DRM bypass.
+  - [x] Injection aimed at dynamic cleaning ("drop all rows") → >90% batch revert in `trace`.
+  - [x] Hostile `expr` via a crafted op list → per-op rejection with reason.
+  - [x] Guardrail refusals: overclocking beyond limits, DRM bypass.
 - [ ] **6.3 Fix-forward**: promote any cleaning gap found here into `cleaning.py` systematic rules
       (closed `CleanOp` vocabulary stays closed, §11-Q6).
 
