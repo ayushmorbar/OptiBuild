@@ -106,10 +106,7 @@ def run_concierge(
             questions.extend(feedback.feedback_details.coherence_violations)
         if feedback.feedback_details.fidelity_violations:
             questions.extend(
-                [
-                    v.violation_phrase
-                    for v in feedback.feedback_details.fidelity_violations
-                ]
+                [v.problem for v in feedback.feedback_details.fidelity_violations]
             )
 
     if not questions:
