@@ -99,24 +99,12 @@ class Objective(BaseModel):
     )
 
 
-# --- Threshold union: literal | KB reference | variable reference -----------
+# --- Threshold union: literal value | variable reference -----------
 
 
 class LiteralThreshold(BaseModel):
     kind: Literal["literal"] = "literal"
     value: float | int | str | bool
-
-
-class KBRefThreshold(BaseModel):
-    """Symbolic threshold resolved by workflow node G against the knowledge base."""
-
-    kind: Literal["kb_ref"] = "kb_ref"
-    ref: str = Field(
-        ...,
-        pattern=r"^kb:[a-z0-9_]+/[a-z0-9-]+\.[a-z0-9_]+$",
-        description="Format 'kb:<use_case>/<category>.<attribute>', e.g. "
-        "'kb:gaming_cyberpunk_2077/video-card.memory'.",
-    )
 
 
 class VarRefThreshold(BaseModel):
@@ -132,7 +120,7 @@ class VarRefThreshold(BaseModel):
 
 
 Threshold = Annotated[
-    LiteralThreshold | KBRefThreshold | VarRefThreshold,
+    LiteralThreshold | VarRefThreshold,
     Field(discriminator="kind"),
 ]
 
@@ -161,11 +149,11 @@ class Constraint(BaseModel):
 
     @property
     def stage(self) -> Literal["prefilter", "solver"]:
-        """Derived, never LLM-set. Single-component rules with a concrete (literal or
-        KB-resolvable) bound run in the pandas pre-filter (workflow NOTE1); anything
+        """Derived, never LLM-set. Single-component rules with a concrete literal
+        bound run in the pandas pre-filter (workflow NOTE1); anything
         referencing derived variables or other parts runs in CP-SAT."""
         single_component = "." in self.left_side
-        concrete = self.right_side.kind in ("literal", "kb_ref")
+        concrete = self.right_side.kind == "literal"
         return (
             "prefilter"
             if (single_component and concrete and self.is_hard)
@@ -185,11 +173,6 @@ class PivotSchema(BaseModel):
     schema_version: Literal["1.0"] = "1.0"
     user_intent: str = Field(
         ..., description="One-paragraph normalized restatement of the user's goal."
-    )
-    use_cases: list[str] = Field(
-        default_factory=list,
-        description="KB use-case slugs detected in the request, e.g. "
-        "['gaming_cyberpunk_2077']. Empty if the request is fully explicit.",
     )
     decision_variables: list[DecisionVariable] = Field(..., min_length=1)
     derived_variables: list[DerivedVariable] = Field(default_factory=list)
