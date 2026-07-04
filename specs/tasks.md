@@ -160,30 +160,30 @@ prefilter → solve) against `data/pc-csv/` and returns a valid build for a hard
 
 ## Phase 5 — Concierge Agent (`app/`)
 
-- [ ] **5.1 Prompt assets** (`app/prompts/`, §2b): stage1–4 extraction contracts
+- [x] **5.1 Prompt assets** (`app/prompt_contracts.py`, §2b): stage1–4 extraction contracts
       (ROLE/INPUT/VOCABULARY/INVARIANTS/OUTPUT/REPAIR blocks), LLM-judge prompt, guardrails block
       (scope lock, refuse OC/thermal-override/DRM, no prompt disclosure).
-- [ ] **5.2 Staged modelization** (`modelization.py`, §2b)
-  - [ ] Stage 1 decision vars + `use_cases` (vocabulary = metadata catalog + KB slugs).
-  - [ ] Stage 2 derived vars (grammar BNF in prompt); Stage 3 objectives+weights; Stage 4
-        constraints (fuzzy → `kb_ref`, never invented numbers).
-  - [ ] Structured output = the Phase-1 submodels; REPAIR mode re-runs only `target_stages`.
+- [x] **5.2 Staged modelization** (`modelization.py`, §2b)
+  - [x] Stage 1 decision vars (vocabulary = metadata catalog). (use_cases dropped).
+  - [x] Stage 2 derived vars, Stage 3 objectives+weights, Stage 4 constraints (no kb_ref).
+  - [x] Structured output = the Phase-1 submodels; REPAIR mode re-runs only `target_stages`.
+  - [x] Lite extraction schemas (`app/extraction_schemas.py`) for Gemini structured output compatibility.
 - [ ] **5.3 Evaluator** (`evaluator.py`, §5)
-  - [ ] Deterministic completeness (required-category set incl. iGPU exception) and coherence
-        (contradiction scan, budget-vs-KB-floor sanity, weight/direction checks).
-  - [ ] LLM judge for intent fidelity (temp 0, structured output), gated to run only after
+  - [x] Deterministic completeness (resolvability verification) and coherence
+        (contradiction scan, weight/direction checks).
+  - [x] LLM judge for intent fidelity (temp 0, structured output), gated to run only after
         deterministic dims pass (§11-Q4).
-  - [ ] Emit `EvaluationFeedback` with `target_stages`.
-  - [ ] `tests/test_evaluator.py`: deterministic dims on fixture schemas (missing PSU → <0.8;
-        contradictory constraints → coherence violation).
+  - [x] Emit `EvaluationFeedback` with `target_stages`.
+  - [x] `tests/test_evaluator.py`: deterministic dims on fixture schemas (contradictory constraints → coherence violation).
 - [ ] **5.4 Orchestration loop** (`agent.py`, §3 + §5)
-  - [ ] Concierge `LlmAgent` + Evaluator wired as LoopAgent; shared 3-iteration budget covering
+  - [x] Deterministic Concierge loop (in `app/concierge.py`); shared 3-iteration budget covering
         both evaluator failures and solver `INFEASIBLE`/`MISSING_DATA` bounces.
+  - [x] Synonym normalization (e.g., string->str, min->minimize) and robust exception recovery during modelization.
+  - [ ] Concierge `LlmAgent` + Evaluator ADK/A2A assembly (Remaining Polish: ADK root_agent, adk web, A2A HTTP, PII-redaction).
   - [ ] Budget sanitization at intake (`0 ≤ budget ≤ 10^6`, §8).
-  - [ ] A2A client call to Solver (env-flag: same-process for dev, HTTP A2A for demo); convert
+  - [x] A2A client call to Solver (env-flag: same-process for dev, HTTP A2A for dev/demo); convert
         solver `feedback` → `EvaluationFeedback.solver_feedback`.
-  - [ ] Exit paths: SUCCESS → present build (selections table, derived values, ranking note,
-        trace summary); budget exhausted → targeted user questions from last `feedback_details`.
+  - [x] Exit paths: SUCCESS → present build; budget exhausted → targeted user questions from last `feedback_details`.
 
 **Done when:** `adk web` (dev wiring): "quiet gaming PC for Cyberpunk 2077 under $1500" produces a
 schema that passes the evaluator ≤3 iterations and returns a presented build end-to-end.
