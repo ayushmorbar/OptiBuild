@@ -203,10 +203,32 @@ gauss/
 ## Testing
 
 ```bash
-uv run pytest                    # full suite (87 tests, offline)
+uv run pytest                    # full suite (99 tests, offline)
 uv run pytest tests/unit         # unit only
 uv run ruff check .              # lint
 ```
+
+### Evaluation suite (internal / admin only)
+
+The 23-case `agents-cli` evaluation runs the **live agent** and spends real LLM
+credits. It is gated behind an explicit opt-in and refuses to run without it:
+
+```powershell
+$env:GAUSS_EVAL_ENABLED = "1"                    # admin opt-in (required)
+uv run python scripts/run_eval.py                # generate traces (fast mode, ~5x cheaper)
+uv run python scripts/run_eval.py --mode staged  # full staged loop + LLM judge
+uv run python scripts/run_eval.py --grade --project <GCP_PROJECT>  # + Vertex grading
+```
+
+Cost-control env vars:
+
+| Variable | Effect |
+|---|---|
+| `GAUSS_EVAL_ENABLED=1` | Unlocks the eval tooling (`scripts/run_eval.py`, `tests/eval/simulate_dataset.py`) |
+| `GAUSS_FAST_MODELIZATION=1` | One-shot extraction + deterministic evaluation (~5x fewer LLM calls); set automatically by `run_eval.py --mode fast` |
+
+Results land in `artifacts/traces/` (generation) and `artifacts/eval/` (grading);
+scores are recorded in `docs/eval-report.md`.
 
 ---
 

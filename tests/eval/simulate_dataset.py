@@ -246,6 +246,13 @@ async def simulate_case(client, case, max_turns, simulator_model):
 
 
 async def main():
+    # Admin gate: this runs the live agent + a simulator model (real LLM spend).
+    if os.environ.get("GAUSS_EVAL_ENABLED") != "1":
+        sys.exit(
+            "Evaluation tooling is DISABLED (internal/admin use only). "
+            "Set GAUSS_EVAL_ENABLED=1 to proceed."
+        )
+
     parser = argparse.ArgumentParser(
         description="Simulate multi-turn user follow-ups on the evaluation dataset."
     )

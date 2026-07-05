@@ -47,12 +47,23 @@ Robustness fixes already applied during trace generation (LLM-output normalizati
 - Dotted `dependencies` → category keys; snake_case targets → dotted terms
 - Dangling-reference repair (`_assemble_schema`) with per-drop logged reasons
 
-## Reproduce
+## Reproduce (admin only)
+
+The eval is **gated**: it spends real LLM credits and refuses to run without the
+explicit opt-in `GAUSS_EVAL_ENABLED=1`. Preferred entry point:
+
+```powershell
+$env:GAUSS_EVAL_ENABLED = "1"
+uv run python scripts/run_eval.py --grade --project <PROJECT_ID>   # fast mode (default)
+uv run python scripts/run_eval.py --mode staged                    # full-fidelity variant
+```
+
+Manual equivalent:
 
 ```bash
-# 1. Generate (local agent; GOOGLE_API_KEY + GOOGLE_CLOUD_PROJECT required)
+# 1. Generate (local agent; GOOGLE_CLOUD_PROJECT required)
 agents-cli eval generate --dataset tests/eval/datasets/basic-dataset.json --output artifacts/traces/
-# (or the staged runner directly, to avoid the CLI's 600s cap — see git history)
+# (or the staged runner directly, to avoid the CLI's 600s cap — see scripts/run_eval.py)
 
 # 2. Grade (Vertex eval service; ADC + project required)
 agents-cli eval grade --traces artifacts/traces/<file>.json \
