@@ -274,5 +274,6 @@ def test_concierge_robust_modelization_failure():
         "validation error" in q.lower()
         or "at least 1 item" in q.lower()
         or "value" in q.lower()
+        or "no valid objective" in q.lower()  # _assemble_schema clear error
         for q in res["questions"]
     )

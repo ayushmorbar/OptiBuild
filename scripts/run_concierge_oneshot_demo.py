@@ -30,7 +30,7 @@ from solver_app.agent import solve
 def main():
     user_request = (
         " ".join(sys.argv[1:])
-        or "cheap PC build, maximise total price, budget 1500 and maximum memory"
+        or "cheap PC build, minimize total price, budget 1500 and maximize memory"
     )
     print(f"Executing one-shot modelization for query: '{user_request}'...")
 
@@ -65,9 +65,14 @@ def main():
             print("\n--- Evaluation Feedback (Failed) ---")
             print(fb.model_dump_json(indent=2))
 
+    except ValueError as e:
+        # Schema-assembly failure: the LLM output could not be repaired into a
+        # valid model. In the full concierge loop this feeds the REPAIR pass.
+        print(f"\nModelization failed: {e}")
+        print("Tip: rerun, or rephrase the request (this is not a credentials issue).")
     except Exception as e:
         print(f"\nFailed to execute one-shot demo: {e}")
-        print("Please check your GEMINI_API_KEY / environment setup.")
+        print("Please check your GOOGLE_API_KEY / environment setup.")
 
 
 if __name__ == "__main__":
