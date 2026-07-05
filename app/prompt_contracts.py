@@ -37,6 +37,18 @@ def _implicit_cost_line(domain: DomainContext | None) -> str:
     )
 
 
+def _required_categories_line(domain: DomainContext | None) -> str:
+    """The agent defines the decision variables itself: a pack-declared required
+    set must be included from the first extraction, never negotiated with the user."""
+    if domain is None or not domain.required_categories:
+        return ""
+    return (
+        "\n- ALWAYS include ALL of these required categories as decision variables "
+        "(they are mandatory for any valid configuration, even if the user did not "
+        f"mention them): {', '.join(domain.required_categories)}."
+    )
+
+
 def _append_repair_feedback(repair_feedback: str | None) -> str:
     if not repair_feedback:
         return ""
@@ -68,7 +80,7 @@ Select decision variables from the available catalog categories and columns belo
 {catalog_summary}
 
 [INVARIANTS]
-- Pick only real category names and columns from the catalog.{_implicit_cost_line(domain)}
+- Pick only real category names and columns from the catalog.{_implicit_cost_line(domain)}{_required_categories_line(domain)}
 - Ensure all category names match exactly.
 
 [OUTPUT]
@@ -185,8 +197,22 @@ Stage 1, 2 & 3 outputs:
     return prompt + _append_repair_feedback(repair_feedback)
 
 
-def build_judge_prompt(user_request: str, schema_json: str) -> str:
+def build_judge_prompt(
+    user_request: str, schema_json: str, available_data: str = ""
+) -> str:
     """Build the prompt for the Intent-Fidelity Judge."""
+    available_block = ""
+    if available_data:
+        available_block = f"""
+[AVAILABLE DATA]
+The ONLY columns that exist in the datasets are listed below. Judge fidelity
+against what is EXPRESSIBLE with these columns: if the user's intent cannot be
+fully modeled because a column does not exist, the schema's best-available proxy
+is CORRECT — do NOT penalize it or demand data that does not exist. Qualitative
+keyword requirements (brands, colors) are handled by a separate downstream
+filtering step and must NOT be flagged as missing constraints.
+{available_data}
+"""
     prompt = f"""[ROLE]
 You are an intent-fidelity judge evaluating whether a compiled optimization schema matches the user's intent.
 
@@ -195,10 +221,10 @@ User request:
 <user_request>
 {user_request}
 </user_request>
-
+{available_block}
 [INVARIANTS]
 Evaluate the schema structure:
-- Verify that every requirement-bearing phrase maps to at least one objective or constraint.
+- Verify that every requirement-bearing phrase maps to at least one objective or constraint (or is a qualitative keyword handled downstream).
 - Ensure that no material requirement is invented (no random constraints).
 - Verify that optimization directions (minimize vs maximize) match the user's natural language request.
 
@@ -231,7 +257,7 @@ Use only categories and columns from the catalog below:
 {catalog_summary}
 
 [INVARIANTS]
-- Decision Variables: Pick only real category names and columns from the catalog.{_implicit_cost_line(domain)}
+- Decision Variables: Pick only real category names and columns from the catalog.{_implicit_cost_line(domain)}{_required_categories_line(domain)}
 - Derived Variables: Define formulas using aggregate functions like `sum(category.attribute, ...)`; `dependencies` must list CATEGORY KEYS only (e.g. ["category-a"]), never dotted terms.
 - Objectives: target_variable must be a dotted 'category.attribute' term or an exact derived-variable name (never snake_case like 'category_attribute'); quote user words in `rationale`; qualitative goals become objectives (maximize/minimize a proxy attribute from the catalog columns), never invented numeric thresholds.
 - Constraints: Use LiteralThreshold for explicit user numbers (e.g., "at least 16 units of capacity" -> category.capacity >= 16); use VarRefThreshold for cross-category consistency (e.g. a.key == b.key), using `origin="compatibility"`; never invent numeric thresholds.

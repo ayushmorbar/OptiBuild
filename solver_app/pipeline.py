@@ -62,9 +62,10 @@ def run_solver_pipeline(
     # 3. Systematic cleaning
     cleaning.clean_systematic(handle, metadata)
 
-    # 4. Injectable dynamic cleaning hook
+    # 4. Injectable dynamic cleaning hook (workflow n7: LLM queries the data
+    # shape and submits declarative CleanOps — validated server-side)
     if dynamic_clean_hook is not None:
-        dynamic_clean_hook(handle, schema)
+        dynamic_clean_hook(handle, schema, request.context.original_prompt)
 
     # 5. Prefilter
     prefilter_report = prefilter_mod.prefilter(

@@ -80,3 +80,31 @@ def test_domain_context_propagates_into_stage_prompts():
     p1_generic = build_stage1_prompt("cheap healthy week", "- protein: ...")
     assert "configuration optimization problem" in p1_generic
     assert "implicitly required" not in p1_generic
+
+
+def test_required_categories_injected_into_stage1_and_oneshot():
+    """The agent must self-include the pack's required set — from the FIRST pass."""
+    from app.prompt_contracts import build_oneshot_prompt
+
+    domain = DomainContext(
+        name="PC build",
+        required_categories=["cpu", "motherboard", "power-supply"],
+    )
+    p1 = build_stage1_prompt("cheapest Intel PC", "- cpu: ...", domain=domain)
+    assert "ALWAYS include ALL of these required categories" in p1
+    assert "cpu, motherboard, power-supply" in p1
+
+    po = build_oneshot_prompt("cheapest Intel PC", "- cpu: ...", domain=domain)
+    assert "cpu, motherboard, power-supply" in po
+
+    # No required set declared -> no line
+    assert "ALWAYS include ALL" not in build_stage1_prompt("x", "- cpu: ...")
+
+
+def test_judge_prompt_grounded_in_available_data():
+    p = build_judge_prompt("quiet PC", '{"x":1}', "- cpu: ... | columns: tdp(int)")
+    assert "AVAILABLE DATA" in p
+    assert "do NOT penalize" in p
+    assert "tdp(int)" in p
+    # Without available data, no block
+    assert "AVAILABLE DATA" not in build_judge_prompt("q", "{}")

@@ -315,3 +315,48 @@ def test_run_fast_oneshot_path(monkeypatch):
     assert res["status"] == "SUCCESS"
     assert res["iterations"] == 1
     assert res["solver_response"].result.selections["cpu"]["name"] == "X"
+
+
+def test_repair_feedback_names_missing_categories():
+    """Completeness failures must feed the missing categories back to stage 1,
+    so the agent self-completes instead of asking the user."""
+    seen_feedback = []
+
+    def mock_extractor(stage: int, prompt: str) -> list[dict]:
+        if "[REPAIR]" in prompt:
+            seen_feedback.append(prompt)
+        if stage == 1:
+            # Always returns an incomplete set (only cpu)
+            return [
+                {
+                    "category": "cpu",
+                    "required_attributes": [{"name": "price", "data_type": "float"}],
+                }
+            ]
+        if stage == 3:
+            return [{"target_variable": "cpu.price", "direction": "minimize"}]
+        return []
+
+    def mock_judge(user_request, schema):
+        return 1.0, []
+
+    def mock_solver_client(request):
+        raise AssertionError("solver must not be reached")
+
+    res = run_concierge(
+        user_request="cheapest Intel PC",
+        catalog_summary="- cpu: ...",
+        extractor=mock_extractor,
+        judge=mock_judge,
+        solver_client=mock_solver_client,
+        max_iterations=2,
+        required_categories=["cpu", "motherboard", "power-supply"],
+    )
+
+    # Iteration 2's REPAIR prompt must name exactly what to add
+    assert any(
+        "missing REQUIRED categories" in fb and "motherboard, power-supply" in fb
+        for fb in seen_feedback
+    ), f"repair feedback did not name missing categories: {seen_feedback}"
+    # And the final clarification (budget exhausted) also names them
+    assert res["status"] == "NEEDS_CLARIFICATION"
