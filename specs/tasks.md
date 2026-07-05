@@ -179,8 +179,11 @@ prefilter → solve) against `data/pc-csv/` and returns a valid build for a hard
   - [x] Deterministic Concierge loop (in `app/concierge.py`); shared 3-iteration budget covering
         both evaluator failures and solver `INFEASIBLE`/`MISSING_DATA` bounces.
   - [x] Synonym normalization (e.g., string->str, min->minimize) and robust exception recovery during modelization.
-  - [ ] Concierge `LlmAgent` + Evaluator ADK/A2A assembly (Remaining Polish: ADK root_agent, adk web, A2A HTTP, PII-redaction).
-  - [ ] Budget sanitization at intake (`0 ≤ budget ≤ 10^6`, §8).
+  - [x] ADK `root_agent` wired to the real pipeline (`optimize_pc_build` → `concierge_runner.run`),
+        adk web entrypoint, PII-redaction callbacks.
+  - [ ] A2A HTTP exposure (`solver_app/agent.py` `a2a_app` still falls back to `None`; dev wiring is in-process).
+  - [ ] Budget sanitization at intake (`0 ≤ budget ≤ 10^6`, §8) — `sanitize_budget` exists in `app/agent.py`
+        but is not called anywhere in the flow, and has no upper bound.
   - [x] A2A client call to Solver (env-flag: same-process for dev, HTTP A2A for dev/demo); convert
         solver `feedback` → `EvaluationFeedback.solver_feedback`.
   - [x] Exit paths: SUCCESS → present build; budget exhausted → targeted user questions from last `feedback_details`.

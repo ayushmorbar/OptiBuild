@@ -6,10 +6,15 @@ from app.schema import PivotSchema
 
 def make_clean_schema_data():
     return {
-        "user_intent": "Build cheapest gaming PC",
+        "user_intent": "Build cheapest gaming PC with all required components",
         "decision_variables": [
             {
                 "category": "cpu",
+                "required_attributes": [{"name": "price", "data_type": "float"}],
+                "optional": False,
+            },
+            {
+                "category": "motherboard",
                 "required_attributes": [{"name": "price", "data_type": "float"}],
                 "optional": False,
             },
@@ -18,12 +23,46 @@ def make_clean_schema_data():
                 "required_attributes": [{"name": "price", "data_type": "float"}],
                 "optional": False,
             },
+            {
+                "category": "internal-hard-drive",
+                "required_attributes": [{"name": "price", "data_type": "float"}],
+                "optional": False,
+            },
+            {
+                "category": "power-supply",
+                "required_attributes": [{"name": "price", "data_type": "float"}],
+                "optional": False,
+            },
+            {
+                "category": "case",
+                "required_attributes": [{"name": "price", "data_type": "float"}],
+                "optional": False,
+            },
+            {
+                "category": "cpu-cooler",
+                "required_attributes": [{"name": "price", "data_type": "float"}],
+                "optional": False,
+            },
+            {
+                "category": "video-card",
+                "required_attributes": [{"name": "price", "data_type": "float"}],
+                "optional": False,
+            },
         ],
         "derived_variables": [
             {
                 "name": "total_price",
-                "formula": "sum(cpu.price, memory.price)",
-                "dependencies": ["cpu", "memory"],
+                "formula": "sum(cpu.price, motherboard.price, memory.price, internal-hard-drive.price, power-supply.price, case.price, cpu-cooler.price, video-card.price)",
+                "dependencies": [
+                    "cpu",
+                    "motherboard",
+                    "memory",
+                    "internal-hard-drive",
+                    "power-supply",
+                    "case",
+                    "cpu-cooler",
+                    "video-card",
+                ],
             }
         ],
         "objectives": [
@@ -55,7 +94,56 @@ def test_evaluator_clean_schema():
     assert feedback.scores.completeness == 1.0
     assert feedback.scores.intent_fidelity == 1.0
     assert len(feedback.feedback_details.coherence_violations) == 0
+    assert len(feedback.feedback_details.missing_categories) == 0
     assert feedback.feedback_details.target_stages == []
+
+
+def test_evaluator_completeness_missing_categories():
+    # Only cpu and video-card
+    data = {
+        "user_intent": "Build gaming PC with only cpu and video-card",
+        "decision_variables": [
+            {
+                "category": "cpu",
+                "required_attributes": [{"name": "price", "data_type": "float"}],
+                "optional": False,
+            },
+            {
+                "category": "video-card",
+                "required_attributes": [{"name": "price", "data_type": "float"}],
+                "optional": False,
+            },
+        ],
+        "derived_variables": [
+            {
+                "name": "total_price",
+                "formula": "sum(cpu.price, video-card.price)",
+                "dependencies": ["cpu", "video-card"],
+            }
+        ],
+        "objectives": [
+            {
+                "target_variable": "total_price",
+                "direction": "minimize",
+            }
+        ],
+        "constraints": [],
+    }
+    schema = PivotSchema.model_validate(data)
+    feedback = evaluate_deterministic(schema, iteration=1)
+
+    assert feedback.passed is False
+    assert feedback.scores.completeness == 0.25  # 2 present out of 8 required
+    assert sorted(feedback.feedback_details.missing_categories) == [
+        "case",
+        "cpu-cooler",
+        "internal-hard-drive",
+        "memory",
+        "motherboard",
+        "power-supply",
+    ]
+    # Check that stage 1 is in target stages since completeness is less than 0.80
+    assert 1 in feedback.feedback_details.target_stages
 
 
 def test_evaluator_contradictory_bounds():

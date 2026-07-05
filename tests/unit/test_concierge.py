@@ -11,7 +11,37 @@ CANNED_DECISION_VARIABLES = [
         "optional": False,
     },
     {
+        "category": "motherboard",
+        "required_attributes": [{"name": "price", "data_type": "float"}],
+        "optional": False,
+    },
+    {
         "category": "memory",
+        "required_attributes": [{"name": "price", "data_type": "float"}],
+        "optional": False,
+    },
+    {
+        "category": "internal-hard-drive",
+        "required_attributes": [{"name": "price", "data_type": "float"}],
+        "optional": False,
+    },
+    {
+        "category": "power-supply",
+        "required_attributes": [{"name": "price", "data_type": "float"}],
+        "optional": False,
+    },
+    {
+        "category": "case",
+        "required_attributes": [{"name": "price", "data_type": "float"}],
+        "optional": False,
+    },
+    {
+        "category": "cpu-cooler",
+        "required_attributes": [{"name": "price", "data_type": "float"}],
+        "optional": False,
+    },
+    {
+        "category": "video-card",
         "required_attributes": [{"name": "price", "data_type": "float"}],
         "optional": False,
     },
@@ -20,8 +50,17 @@ CANNED_DECISION_VARIABLES = [
 CANNED_DERIVED_VARIABLES = [
     {
         "name": "total_price",
-        "formula": "sum(cpu.price, memory.price)",
-        "dependencies": ["cpu", "memory"],
+        "formula": "sum(cpu.price, motherboard.price, memory.price, internal-hard-drive.price, power-supply.price, case.price, cpu-cooler.price, video-card.price)",
+        "dependencies": [
+            "cpu",
+            "motherboard",
+            "memory",
+            "internal-hard-drive",
+            "power-supply",
+            "case",
+            "cpu-cooler",
+            "video-card",
+        ],
     }
 ]
 

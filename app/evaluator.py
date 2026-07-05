@@ -75,11 +75,30 @@ def check_coherence(schema: PivotSchema) -> tuple[float, list[str]]:
     return score, violations
 
 
-def check_completeness(schema: PivotSchema) -> tuple[float, list[str]]:
-    """Verify that all target variables and refs resolve to known terms.
+def check_completeness(schema: PivotSchema) -> tuple[float, list[str], list[str]]:
+    """Verify that all target variables and refs resolve to known terms, and that
+    all required component categories are present in the decision variables.
 
-    Returns (fraction_resolvable, list of unresolved terms).
+    Required categories are:
+    - cpu, motherboard, memory, internal-hard-drive, power-supply, case, cpu-cooler, video-card
+
+    The completeness score is computed as the minimum of:
+    1. The fraction of required categories that are present in the schema.
+    2. The fraction of targets/refs in objectives/constraints that resolve to known terms.
+
+    Returns (completeness_score, list of unresolved terms, list of missing categories).
     """
+    REQUIRED_CATEGORIES = {
+        "cpu",
+        "motherboard",
+        "memory",
+        "internal-hard-drive",
+        "power-supply",
+        "case",
+        "cpu-cooler",
+        "video-card",
+    }
+
     known = set()
     for dv in schema.derived_variables:
         known.add(dv.name)
@@ -105,11 +124,20 @@ def check_completeness(schema: PivotSchema) -> tuple[float, list[str]]:
                 unresolved.append(c.right_side.ref)
 
     if total == 0:
-        return 1.0, []
+        fraction_resolvable = 1.0
+    else:
+        resolvable_count = total - len(unresolved)
+        fraction_resolvable = float(resolvable_count) / total
 
-    resolvable_count = total - len(unresolved)
-    fraction = float(resolvable_count) / total
-    return fraction, sorted(unresolved)
+    present_categories = {d.category for d in schema.decision_variables}
+    missing_categories = sorted(REQUIRED_CATEGORIES - present_categories)
+
+    fraction_required = (len(REQUIRED_CATEGORIES) - len(missing_categories)) / len(
+        REQUIRED_CATEGORIES
+    )
+
+    combined_score = min(fraction_resolvable, fraction_required)
+    return combined_score, sorted(unresolved), missing_categories
 
 
 def evaluate_deterministic(
@@ -119,7 +147,7 @@ def evaluate_deterministic(
     fidelity_violations: list[FidelityViolation] | None = None,
 ) -> EvaluationFeedback:
     """Run deterministic evaluator checks and output an EvaluationFeedback."""
-    completeness, _ = check_completeness(schema)
+    completeness, _, missing_categories = check_completeness(schema)
     coherence, coh = check_coherence(schema)
 
     passed = completeness >= 0.80 and coherence >= 0.80 and intent_fidelity >= 0.80
@@ -142,7 +170,7 @@ def evaluate_deterministic(
         ),
         feedback_details=FeedbackDetails(
             target_stages=sorted(set(target_stages)),
-            missing_categories=[],
+            missing_categories=missing_categories,
             coherence_violations=coh,
             fidelity_violations=fidelity_violations or [],
             solver_feedback=None,
