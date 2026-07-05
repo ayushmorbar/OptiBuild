@@ -277,3 +277,41 @@ def test_concierge_robust_modelization_failure():
         or "no valid objective" in q.lower()  # _assemble_schema clear error
         for q in res["questions"]
     )
+
+
+def test_run_fast_oneshot_path(monkeypatch):
+    """GAUSS_FAST_MODELIZATION: one-shot extraction + deterministic eval, same contract."""
+    from unittest.mock import patch
+
+    import app.concierge_runner as runner
+
+    canned = {
+        "user_intent": "cheap pc",
+        "decision_variables": [
+            {
+                "category": "cpu",
+                "required_attributes": [{"name": "price", "data_type": "float"}],
+            },
+        ],
+        "derived_variables": [],
+        "objectives": [{"target_variable": "cpu.price", "direction": "minimize"}],
+        "constraints": [],
+    }
+
+    def fake_solver(req):
+        return SolverResponse(
+            transaction_id=req.transaction_id,
+            status="SUCCESS",
+            result={"selections": {"cpu": {"name": "X", "price": 10.0}}},
+        )
+
+    monkeypatch.setenv("GAUSS_FAST_MODELIZATION", "1")
+    with patch(
+        "app.llm_extractor.make_oneshot_extractor", return_value=lambda p: canned
+    ):
+        metadata = {"datasets": [], "required_categories": None}
+        res = runner._run_fast("cheap pc", metadata, fake_solver)
+
+    assert res["status"] == "SUCCESS"
+    assert res["iterations"] == 1
+    assert res["solver_response"].result.selections["cpu"]["name"] == "X"
