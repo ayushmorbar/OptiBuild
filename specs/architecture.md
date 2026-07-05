@@ -875,14 +875,14 @@ requires co-location.
 
 ## 10. Capstone Concept Mapping
 
-| # | Capstone concept | Module(s) | How it survives the redesign |
+| # | Capstone concept | Module(s) — as built (2026-07-05) | How it survives the redesign |
 |---|---|---|---|
-| 1 | Agent / multi-agent (ADK) | `app/agent.py`, `app/evaluator.py`, `solver_app/agent.py` | Concierge (Orchestrator + Evaluator LoopAgent) ↔ Solver Specialist over **A2A** — the workflow's three roles preserved inside the capstone's two-agent split (§3) |
-| 2 | MCP server | `app/mcp_server/*` | FastMCP over Stdio, 8 substantive tools incl. CP-SAT, read-only data querying, and declarative cleaning; Solver connects via `McpToolset` + `StdioConnectionParams` (§4) |
-| 3 | Security | `app/mcp_server/safe_ops.py`, `app/schema.py`, prompt guardrails | Upgraded from the spec's "input sanitization only" to a no-code-execution design: allowlisted query expressions (numexpr), closed declarative op vocabulary, effect validation + strict Pydantic contracts + guardrails (§8) |
-| 4 | Agent skills / eval (agents-cli) | `eval/basic-dataset.json`, `eval/eval_config.yaml` | 20 cases scored on `multi_turn_task_success`, `final_response_quality`, `multi_turn_tool_use_quality` via `agents-cli eval` |
+| 1 | Agent / multi-agent (ADK) | `app/agent.py` (root_agent + `safety_guard` sub-agent + `optimize_request` tool), `app/concierge.py`, `app/evaluator.py`, `solver_app/agent.py` | Concierge (root agent + safety-guard sub-agent + evaluator loop) → Solver Specialist. Solver called in-process for V1 (contract identical to A2A, §3); `to_a2a` export present, HTTP endpoint pending |
+| 2 | MCP server | `app/mcp_server/*` | FastMCP over Stdio, **7** substantive tools incl. CP-SAT, read-only data querying, and declarative cleaning (`resolve_thresholds` dropped with the KB); Solver connects via `McpToolset` + `StdioConnectionParams` (§4) |
+| 3 | Security | `app/mcp_server/safe_ops.py`, `app/schema.py`, prompt guardrails + PII redaction (`app/agent.py`) | Upgraded from the spec's "input sanitization only" to a no-code-execution design: allowlisted query expressions (numexpr), closed declarative op vocabulary, effect validation + strict Pydantic contracts + guardrails + credit-card/SSN redaction callbacks (§8) |
+| 4 | Agent skills / eval (agents-cli) | `tests/eval/datasets/basic-dataset.json`, `tests/eval/eval_config.yaml`, `docs/eval-report.md` | 23 cases scored on `multi_turn_task_success`, `final_response_quality`, `multi_turn_tool_use_quality` via `agents-cli eval generate`/`grade` (Vertex eval service) |
 | 5 | Antigravity | (video) | Development-workflow demonstration; no code artifact required |
-| 6 | Deployability | `pyproject.toml`, per-app deploy configs | `agents-cli deploy` of both agent apps to Cloud Run / Vertex AI Agent Runtime; the no-code-execution design means no sandbox/privileged machinery is needed in the container (§8) |
+| 6 | Deployability | `Dockerfile`, `.gcloudignore`, `app/fast_api_app.py`, `agents-cli-manifest.yaml` | **Single Cloud Run service** (Concierge with in-process Solver + co-located data pack — supersedes "both agent apps": no A2A HTTP in V1) via `agents-cli deploy -d cloud_run`; the no-code-execution design means no sandbox/privileged machinery is needed in the container (§8) |
 
 Nothing from the workflow is dropped: every node appears in §1's diagram with an owner in §3's
 table. The only spec-vs-workflow tension (spec's simple "Concierge parses + delegates" vs the

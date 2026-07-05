@@ -107,6 +107,41 @@ safety_guard = Agent(
 safety_guard_tool = AgentTool(agent=safety_guard)
 
 
+def _llm_view(result: dict) -> dict:
+    """Lean, JSON-safe view of the concierge result for the LLM context.
+
+    The full result carries the internal PivotSchema and solver trace — hundreds
+    of tokens the model never needs, resent with every subsequent turn. Keep only
+    what the presentation layer uses.
+    """
+    view = {
+        "status": result.get("status"),
+        "iterations": result.get("iterations"),
+    }
+    if result.get("questions"):
+        view["questions"] = result["questions"]
+
+    resp = result.get("solver_response")
+    if resp is not None:
+        if hasattr(resp, "model_dump"):
+            resp = resp.model_dump(mode="json")
+        r = resp.get("result") or {}
+        view["solver_response"] = {
+            "status": resp.get("status"),
+            "result": {
+                "selections": r.get("selections"),
+                "derived_values": r.get("derived_values"),
+                "objective_report": r.get("objective_report"),
+                "ranking": r.get("ranking"),
+            }
+            if r
+            else None,
+            "feedback": resp.get("feedback"),
+            "category_resolution": (resp.get("trace") or {}).get("category_resolution"),
+        }
+    return view
+
+
 # 2. Optimization Python Function (Exposed as a Tool)
 def optimize_request(user_request: str) -> dict:
     """Finds the optimal selection from the active dataset pack satisfying the user's goals and constraints.
@@ -117,7 +152,7 @@ def optimize_request(user_request: str) -> dict:
     import app.concierge_runner
 
     try:
-        return app.concierge_runner.run(user_request)
+        return _llm_view(app.concierge_runner.run(user_request))
     except Exception as e:
         return {"status": "ERROR", "error": str(e)}
 

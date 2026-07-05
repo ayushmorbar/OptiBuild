@@ -21,6 +21,10 @@ WORKDIR /code
 COPY ./pyproject.toml ./README.md ./uv.lock* ./
 
 COPY ./app ./app
+# Solver Specialist package + the dataset pack: required at runtime by
+# optimize_request -> concierge_runner -> solver_app.pipeline -> data/pc-csv
+COPY ./solver_app ./solver_app
+COPY ./data ./data
 
 RUN uv sync --frozen
 

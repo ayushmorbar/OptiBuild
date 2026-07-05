@@ -22,9 +22,28 @@ from app.app_utils.telemetry import setup_telemetry
 from app.app_utils.typing import Feedback
 
 setup_telemetry()
-_, project_id = google.auth.default()
-logging_client = google_cloud_logging.Client()
-logger = logging_client.logger(__name__)
+
+# Cloud credentials/logging are available on Cloud Run (metadata server) but not
+# necessarily in local containers — degrade gracefully instead of crashing at import.
+try:
+    _, project_id = google.auth.default()
+    logging_client = google_cloud_logging.Client()
+    logger = logging_client.logger(__name__)
+except Exception:  # DefaultCredentialsError and friends
+    import logging as _stdlib_logging
+
+    project_id = None
+    logging_client = None
+    _fallback = _stdlib_logging.getLogger(__name__)
+
+    class _LocalLogger:
+        """Minimal stand-in for the Cloud Logging logger in local runs."""
+
+        def log_struct(self, payload, severity="INFO"):
+            _fallback.info("[%s] %s", severity, payload)
+
+    logger = _LocalLogger()
+
 allow_origins = (
     os.getenv("ALLOW_ORIGINS", "").split(",") if os.getenv("ALLOW_ORIGINS") else None
 )
@@ -44,7 +63,7 @@ app: FastAPI = get_fast_api_app(
     artifact_service_uri=artifact_service_uri,
     allow_origins=allow_origins,
     session_service_uri=session_service_uri,
-    otel_to_cloud=True,
+    otel_to_cloud=project_id is not None,  # cloud trace only when credentials exist
 )
 app.title = "gauss"
 app.description = "API for interacting with the Agent gauss"

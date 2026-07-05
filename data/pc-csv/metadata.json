@@ -468,13 +468,13 @@
     {
       "file_name": "memory.csv",
       "category_key": "memory",
-      "description": "System RAM modules for temporary data storage.",
+      "description": "System RAM modules; total capacity in capacity_gb (GB), speed in speed_mhz.",
       "synonyms": [
         "ram",
         "random access memory",
         "memory modules"
       ],
-      "record_count": 13553,
+      "record_count": 13549,
       "columns": {
         "name": {
           "type": "str",
@@ -508,11 +508,33 @@
         "cas_latency": {
           "type": "float",
           "required": false
+        },
+        "ddr_gen": {
+          "type": "int",
+          "required": false
+        },
+        "speed_mhz": {
+          "type": "int",
+          "required": false,
+          "unit": "MHz"
+        },
+        "module_count": {
+          "type": "int",
+          "required": false
+        },
+        "module_gb": {
+          "type": "int",
+          "required": false,
+          "unit": "GB"
+        },
+        "capacity_gb": {
+          "type": "int",
+          "required": false,
+          "unit": "GB"
         }
       },
       "known_quirks": [
-        "packs speed='5,6000'",
-        "packs modules='2,16'"
+        "raw packed strings speed='5,6000' and modules='2,16' retained; use the enriched ddr_gen/speed_mhz/module_count/module_gb/capacity_gb columns instead"
       ]
     },
     {
