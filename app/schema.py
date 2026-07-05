@@ -466,8 +466,24 @@ class ClipRangeOp(BaseModel):
     max: float | None = None
 
 
+class FilterContainsOp(BaseModel):
+    """Keep rows whose text column contains a literal substring (case-insensitive).
+
+    Enables on-the-fly qualitative filtering ("an Intel CPU", "a white case")
+    without pack-specific columns. The value is treated as a LITERAL, never a
+    regex, and is applied by fixed server code — no expression evaluation.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    op: Literal["filter_contains"] = "filter_contains"
+    category: str
+    column: str
+    value: str
+    negate: bool = False
+
+
 CleanOp = Annotated[
-    FilterRowsOp | DropNullsOp | MapValuesOp | ClipRangeOp,
+    FilterRowsOp | DropNullsOp | MapValuesOp | ClipRangeOp | FilterContainsOp,
     Field(discriminator="op"),
 ]
 
@@ -483,6 +499,7 @@ class DomainContext(BaseModel):
     description: str = ""
     safety_notes: list[str] = Field(default_factory=list)
     primary_cost_column: str | None = None
+    required_categories: list[str] = Field(default_factory=list)
 
 
 class DatasetMatch(BaseModel):

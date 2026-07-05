@@ -64,11 +64,21 @@ def solve(request_dict: dict) -> dict:
     """Validate SolverRequest, run the deterministic solver pipeline,
 
     and return the serialized and sanitized SolverResponse.
+
+    Dynamic cleaning (workflow n7: the agent queries the loaded data and submits
+    declarative CleanOps) is ON by default; disable with GAUSS_DYNAMIC_CLEAN=0.
     """
     from app.mcp_server.server import _json_safe
 
     request = SolverRequest.model_validate(request_dict)
-    response = run_solver_pipeline(request, dynamic_clean_hook=None)
+
+    hook = None
+    if os.environ.get("GAUSS_DYNAMIC_CLEAN", "1") != "0":
+        from solver_app.dynamic_cleaner import make_dynamic_clean_hook
+
+        hook = make_dynamic_clean_hook()
+
+    response = run_solver_pipeline(request, dynamic_clean_hook=hook)
     return _json_safe(response.model_dump())
 
 

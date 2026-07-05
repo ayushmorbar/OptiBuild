@@ -39,6 +39,48 @@ dataset" sentence now describes the default demo pack, not a system limit; PC ex
 domain, cost column named `cost`) runs the identical pipeline end-to-end in
 `tests/integration/test_toy_pack_pipeline.py`.
 
+**Post-deployment hardening (2026-07-05, evening) — dynamic cleaning wired, cost-bounded LLM
+surface, gated evaluation.** Deployed live on Cloud Run and hardened through real user
+sessions; supersedes the corresponding details below:
+
+- **Workflow node n7 is WIRED** (was the last unowned node): `solver_app/dynamic_cleaner.py`
+  is an LLM *op-planner* invoked inside `run_solver_pipeline` (after systematic cleaning).
+  It sees only column names + <=5 sample values per category — never DataFrames — and emits
+  declarative `CleanOp`s executed by `safe_ops.py`. The vocabulary gained a 5th op,
+  **`filter_contains`** (literal-only, case-insensitive substring, `regex=False`, optional
+  `negate`): qualitative keyword requirements ("an Intel CPU", "a white case") are enforced
+  **at runtime through a tool, with zero pack-specific code** (the short-lived cpu `brand`
+  enrichment was reverted on this principle). Fail-open; kill-switch `GAUSS_DYNAMIC_CLEAN=0`.
+- **Self-completing modelization**: the pack's `required_categories` is injected into the
+  stage-1/one-shot prompts via `DomainContext`, and evaluator feedback **names missing
+  categories explicitly** in REPAIR — the agent defines decision variables itself and never
+  bounces component enumeration to the user.
+- **Catalog-grounded judge**: the intent-fidelity judge receives the available columns
+  (filtered to the schema's categories) and must not demand data that does not exist;
+  best-available proxies are correct by instruction.
+- **LLM-output tolerance layer** (`normalize_raw_dict` + `_assemble_schema`): synonym maps
+  (types, directions, `origin`, threshold `kind` incl. echoed class names), formula rewrite
+  (`a+b` -> `sum(a,b)`), name slugification, dotted-dependency stripping, snake_case term
+  resolution, dangling-reference auto-repair with logged drop reasons. All layers were
+  derived from observed live failures and are regression-tested.
+- **Cost discipline (measured)**: per-stage thinking budgets (512; 1024 for objectives &
+  one-shot; judge 512) replace unbounded dynamic thinking; prior-stage JSON and the judge
+  schema are compact dumps (`exclude_defaults/none`); the stage-4 catalog is filtered to the
+  stage-1 categories; the `optimize_request` tool returns a lean JSON view (internal
+  PivotSchema and solver trace stripped); the concierge prompt allows **at most one
+  `optimize_request` call per user message**. Net: ~8K input / <=4.4K output tokens per
+  happy-path request (~1-2 cents).
+- **Execution modes** (env flags): `GAUSS_FAST_MODELIZATION=1` (one-shot extraction +
+  deterministic evaluation, ~5x fewer calls), `GAUSS_DYNAMIC_CLEAN`, and the **admin-gated
+  evaluation** `GAUSS_EVAL_ENABLED=1` (`scripts/run_eval.py`; refuses to run otherwise —
+  the 23-case suite spends real credits and is internal-only).
+- **Deployment (concept 6, done)**: single Cloud Run service (`europe-west1`,
+  scale-to-zero, IAM-private, Vertex-mode Gemini), data pack co-located in the container
+  (`Dockerfile` + `.gcloudignore` re-including the git-ignored CSVs).
+
+Current quality assessment: `specs/quality-audit.md`. As-built diagram:
+`specs/workflow-final.md`.
+
 ---
 
 ## 1. System Overview
@@ -561,6 +603,7 @@ The Solver Specialist connects via ADK `McpToolset` + `StdioConnectionParams`
 | `drop_nulls` | `category, columns` | Drop rows with nulls in the named columns |
 | `map_values` | `category, column, mapping: dict[str,str]` | Normalize string variants (e.g. `"White / Black" → "White"`) |
 | `clip_range` | `category, column, min?, max?` | Drop rows outside a numeric range |
+| `filter_contains` *(added 2026-07-05)* | `category, column, value, negate?` | Keep (or exclude with `negate`) rows whose text column contains the **literal** substring, case-insensitive, `regex=False` — the runtime carrier of qualitative keyword requirements |
 
 Every op targets declared columns only, may only *reduce or normalize* rows (never add columns
 or fabricate values), and is logged verbatim in `trace` for auditability. Extending the
@@ -582,7 +625,7 @@ Deterministic checks are free, reproducible, and never hallucinate a pass.
 |---|---|---|
 | **Completeness** (0–1) | Deterministic | Fraction of the pack's `required_categories` (metadata.json, optional) present in `decision_variables`, combined (min) with the fraction of objective/constraint terms that resolve. A pack that declares no required set is scored on resolvability alone. The PC demo pack declares: `cpu, motherboard, memory, internal-hard-drive, power-supply, case, cpu-cooler, video-card`. |
 | **Coherence** (0–1) | Deterministic | Pairwise constraint contradiction scan on same `left_side` (e.g. `x <= 500` ∧ `x >= 600`); budget sanity (sum of per-category KB floor prices ≤ budget); no objective both maximized and minimized; weights valid. |
-| **Intent fidelity** (0–1) | LLM judge | Every requirement-bearing phrase in the request maps to ≥1 objective/constraint (using `Objective.rationale` and `Constraint.origin` as evidence); nothing material invented; direction of each objective matches user language. |
+| **Intent fidelity** (0–1) | LLM judge | Every requirement-bearing phrase in the request maps to ≥1 objective/constraint (using `Objective.rationale` and `Constraint.origin` as evidence); nothing material invented; direction of each objective matches user language. **Grounded in the available catalog columns** (2026-07-05): the judge must not demand data that does not exist, and qualitative keywords handled by dynamic filtering are not flagged as missing constraints. |
 
 **Pass threshold: all three ≥ 0.80.** **Loop guard: max 3 modelization iterations**, tracked in
 Concierge session state; on the 3rd failure the Concierge exits the loop and asks the user
@@ -837,7 +880,8 @@ gauss/
 │   ├── __init__.py
 │   ├── agent.py                      # root_agent = Solver LlmAgent + McpToolset(Stdio) + a2a export
 │   ├── gates.py                      # Gate 1 / Gate 2 pure functions over LoadReport (§6)
-│   └── dynamic_clean_prompt.py       # op-planning prompt contract (query_data → CleanOp list)
+│   ├── dynamic_clean_prompt.py       # op-planning prompt contract (columns+samples → CleanOp list)
+│   └── dynamic_cleaner.py            # n7 WIRED: LLM op-planner hook (fail-open, GAUSS_DYNAMIC_CLEAN)
 ├── app/mcp_server/                   # FastMCP server package (run: uv run python -m app.mcp_server)
 │   ├── __init__.py
 │   ├── __main__.py                   # stdio entrypoint
@@ -854,6 +898,14 @@ gauss/
 │   └── pc-csv/                       # default demo pack: 25 category CSVs + metadata.json (§6)
 │                                     #   (kb.py / knowledge_base.json / compatibility_rules.json
 │                                     #    dropped per 2026-07-04 note; legacy app/tools.py deleted)
+├── scripts/
+│   ├── gen_metadata.py               # pack catalog generator (--data-dir, preserves top-level fields)
+│   ├── enrich_pc_pack.py             # PC-pack data curation (memory packed-columns unpacking)
+│   ├── run_eval.py                   # ADMIN-GATED eval entry point (GAUSS_EVAL_ENABLED=1)
+│   └── run_*_demo.py                 # offline & NL demos
+├── docs/
+│   ├── eval-report.md                # eval method + scores (baseline → final)
+│   └── capstone-assets.md            # video capture guide per capstone concept
 ├── eval/
 │   ├── basic-dataset.json            # 20 capstone eval cases (multi-turn build requests)
 │   └── eval_config.yaml              # agents-cli eval: multi_turn_task_success,
@@ -878,7 +930,7 @@ requires co-location.
 | # | Capstone concept | Module(s) — as built (2026-07-05) | How it survives the redesign |
 |---|---|---|---|
 | 1 | Agent / multi-agent (ADK) | `app/agent.py` (root_agent + `safety_guard` sub-agent + `optimize_request` tool), `app/concierge.py`, `app/evaluator.py`, `solver_app/agent.py` | Concierge (root agent + safety-guard sub-agent + evaluator loop) → Solver Specialist. Solver called in-process for V1 (contract identical to A2A, §3); `to_a2a` export present, HTTP endpoint pending |
-| 2 | MCP server | `app/mcp_server/*` | FastMCP over Stdio, **7** substantive tools incl. CP-SAT, read-only data querying, and declarative cleaning (`resolve_thresholds` dropped with the KB); Solver connects via `McpToolset` + `StdioConnectionParams` (§4) |
+| 2 | MCP server | `app/mcp_server/*` | FastMCP over Stdio, **7** substantive tools incl. CP-SAT, read-only data querying, and declarative cleaning — **5-op CleanOp vocabulary incl. `filter_contains`**, planned at runtime by the wired n7 LLM hook; Solver connects via `McpToolset` + `StdioConnectionParams` (§4) |
 | 3 | Security | `app/mcp_server/safe_ops.py`, `app/schema.py`, prompt guardrails + PII redaction (`app/agent.py`) | Upgraded from the spec's "input sanitization only" to a no-code-execution design: allowlisted query expressions (numexpr), closed declarative op vocabulary, effect validation + strict Pydantic contracts + guardrails + credit-card/SSN redaction callbacks (§8) |
 | 4 | Agent skills / eval (agents-cli) | `tests/eval/datasets/basic-dataset.json`, `tests/eval/eval_config.yaml`, `docs/eval-report.md` | 23 cases scored on `multi_turn_task_success`, `final_response_quality`, `multi_turn_tool_use_quality` via `agents-cli eval generate`/`grade` (Vertex eval service) |
 | 5 | Antigravity | (video) | Development-workflow demonstration; no code artifact required |

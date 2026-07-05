@@ -31,7 +31,7 @@ def split_packed(series: pd.Series) -> tuple[pd.Series, pd.Series]:
     return left, right
 
 
-def main():
+def enrich_memory() -> None:
     csv_path = get_data_dir() / "memory.csv"
     df = pd.read_csv(csv_path)
 
@@ -55,6 +55,10 @@ def main():
         f"(ddr_gen, speed_mhz, module_count, module_gb, capacity_gb), "
         f"{before - len(df)} unparseable row(s) dropped, {len(df)} rows."
     )
+
+
+def main():
+    enrich_memory()
 
 
 if __name__ == "__main__":

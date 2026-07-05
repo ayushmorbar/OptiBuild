@@ -190,7 +190,7 @@
     {
       "file_name": "cpu.csv",
       "category_key": "cpu",
-      "description": "Central processing units for computing performance.",
+      "description": "Desktop CPUs with clocks, core counts, TDP and integrated graphics; maker (Intel/AMD) is part of the name.",
       "synonyms": [
         "processor",
         "central processing unit",
