@@ -96,6 +96,20 @@ def run_solver_pipeline(
 
     # 7. Map report to response
     if report.status in ("OPTIMAL", "FEASIBLE"):
+
+        def objective_value(target: str) -> float:
+            """Objective value from derived values, or from the selected item's attribute."""
+            if target in report.derived_values:
+                return report.derived_values[target]
+            if "." in target:
+                cat, attr = target.split(".", 1)
+                selected = report.selections.get(cat, {})
+                try:
+                    return float(selected.get(attr))
+                except (TypeError, ValueError):
+                    pass
+            return 0.0
+
         result = SolverResult(
             selections=report.selections,
             derived_values=report.derived_values,
@@ -103,7 +117,7 @@ def run_solver_pipeline(
                 ObjectiveReportItem(
                     target=o.target_variable,
                     direction=o.direction,
-                    value=report.derived_values.get(o.target_variable, 0.0),
+                    value=objective_value(o.target_variable),
                 )
                 for o in schema.objectives
             ],

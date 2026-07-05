@@ -100,6 +100,7 @@ Define formulas using the restricted grammar rules:
 
 [INVARIANTS]
 - All variables referenced in the formulas must exist as Stage-1 decision variables (category.attribute) or prior derived variables.
+- `dependencies` must list CATEGORY KEYS only (e.g. ["category-a", "category-b"]), never 'category.attribute' terms.
 - Do not invent attributes.
 
 [OUTPUT]
@@ -231,8 +232,8 @@ Use only categories and columns from the catalog below:
 
 [INVARIANTS]
 - Decision Variables: Pick only real category names and columns from the catalog.{_implicit_cost_line(domain)}
-- Derived Variables: Define formulas using aggregate functions like `sum(category.attribute, ...)`.
-- Objectives: target_variable must resolve to Stage-1/2 variables; quote user words in `rationale`; qualitative goals become objectives (maximize/minimize a proxy attribute from the catalog columns), never invented numeric thresholds.
+- Derived Variables: Define formulas using aggregate functions like `sum(category.attribute, ...)`; `dependencies` must list CATEGORY KEYS only (e.g. ["category-a"]), never dotted terms.
+- Objectives: target_variable must be a dotted 'category.attribute' term or an exact derived-variable name (never snake_case like 'category_attribute'); quote user words in `rationale`; qualitative goals become objectives (maximize/minimize a proxy attribute from the catalog columns), never invented numeric thresholds.
 - Constraints: Use LiteralThreshold for explicit user numbers (e.g., "at least 16 units of capacity" -> category.capacity >= 16); use VarRefThreshold for cross-category consistency (e.g. a.key == b.key), using `origin="compatibility"`; never invent numeric thresholds.
 
 [OUTPUT]

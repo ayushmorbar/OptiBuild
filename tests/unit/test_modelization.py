@@ -294,3 +294,164 @@ def test_build_schema_oneshot_skips_invalid():
 
     assert len(schema.constraints) == 1
     assert schema.constraints[0].name == "budget_cap"
+
+
+def test_oneshot_repairs_dangling_references():
+    """Reproduces the live failure: derived var dropped (off-grammar formula)
+    while an objective still targets it -> must repair, not crash."""
+    from app.modelization import build_schema_oneshot
+
+    canned = {
+        "user_intent": "cheap PC",
+        "decision_variables": CANNED_DECISION_VARIABLES,
+        "derived_variables": [
+            {
+                # 'a + b' form is off-grammar but normalizable -> sum(...)
+                "name": "total_price",
+                "formula": "cpu.price + memory.price",
+                "dependencies": ["cpu", "memory"],
+            }
+        ],
+        "objectives": [
+            {"target_variable": "total_price", "direction": "minimize"},
+            # References a declared category but an undeclared attribute:
+            # must be auto-declared on the decision variable, not crash
+            {"target_variable": "memory.capacity", "direction": "maximize"},
+            # References nothing known at all: must be dropped
+            {"target_variable": "ghost_var", "direction": "maximize"},
+        ],
+        "constraints": [
+            {
+                "name": "ghost_cap",
+                "left_side": "ghost_var",
+                "operator": "<=",
+                "right_side": {"kind": "literal", "value": 10},
+            }
+        ],
+    }
+
+    schema = build_schema_oneshot("cheap PC", "cpu: price", lambda p: canned)
+
+    # Formula normalized into the grammar
+    assert schema.derived_variables[0].formula == "sum(cpu.price, memory.price)"
+    # Auto-declared attribute
+    mem = next(d for d in schema.decision_variables if d.category == "memory")
+    assert any(a.name == "capacity" for a in mem.required_attributes)
+    # ghost objective and constraint dropped, valid ones kept
+    targets = {o.target_variable for o in schema.objectives}
+    assert targets == {"total_price", "memory.capacity"}
+    assert schema.constraints == []
+
+
+def test_oneshot_no_valid_objective_raises_clear_error():
+    import pytest
+
+    from app.modelization import build_schema_oneshot
+
+    canned = {
+        "user_intent": "x",
+        "decision_variables": CANNED_DECISION_VARIABLES,
+        "derived_variables": [],
+        "objectives": [{"target_variable": "ghost_var", "direction": "minimize"}],
+        "constraints": [],
+    }
+
+    with pytest.raises(ValueError, match="no valid objective"):
+        build_schema_oneshot("x", "cpu: price", lambda p: canned)
+
+
+def test_oneshot_repairs_live_llm_output_shape():
+    """Exact shape observed live: dotted dependencies + snake_case objective."""
+    from app.modelization import build_schema_oneshot
+
+    canned = {
+        "user_intent": "cheap PC build, minimize total price, maximize memory",
+        "decision_variables": [
+            {
+                "category": c,
+                "required_attributes": [{"name": "price", "data_type": "float"}],
+            }
+            for c in [
+                "cpu",
+                "motherboard",
+                "memory",
+                "power-supply",
+                "case",
+                "internal-hard-drive",
+            ]
+        ],
+        "derived_variables": [
+            {
+                "name": "total_price",
+                "formula": "sum(cpu.price, motherboard.price, memory.price, power-supply.price, case.price, internal-hard-drive.price)",
+                # LLM emitted dotted terms instead of category keys:
+                "dependencies": [
+                    "cpu.price",
+                    "motherboard.price",
+                    "memory.price",
+                    "power-supply.price",
+                    "case.price",
+                    "internal-hard-drive.price",
+                ],
+            }
+        ],
+        "objectives": [
+            {"target_variable": "total_price", "direction": "minimize"},
+            # LLM emitted snake_case instead of a dotted term:
+            {"target_variable": "memory_capacity", "direction": "maximize"},
+        ],
+        "constraints": [
+            {
+                "name": "budget_cap",
+                "left_side": "total_price",
+                "operator": "<=",
+                "right_side": {"kind": "literal", "value": 1500},
+            }
+        ],
+    }
+
+    schema = build_schema_oneshot("cheap PC build", "catalog", lambda p: canned)
+
+    # Dotted dependencies normalized to category keys
+    assert schema.derived_variables[0].dependencies == [
+        "cpu",
+        "motherboard",
+        "memory",
+        "power-supply",
+        "case",
+        "internal-hard-drive",
+    ]
+    # snake_case objective resolved to a dotted term + attribute auto-declared
+    targets = {o.target_variable for o in schema.objectives}
+    assert targets == {"total_price", "memory.capacity"}
+    mem = next(d for d in schema.decision_variables if d.category == "memory")
+    assert any(a.name == "capacity" for a in mem.required_attributes)
+    assert schema.constraints[0].name == "budget_cap"
+
+
+def test_constraint_origin_synonyms_normalized():
+    """LLMs improvise origin values ('user_request'...) — must normalize, not drop."""
+    from app.modelization import normalize_raw_dict
+    from app.schema import Constraint
+
+    for raw_origin, expected in [
+        ("user_request", "user_explicit"),
+        ("USER", "user_explicit"),
+        ("knowledge_base", "kb_derived"),
+        ("compat", "compatibility"),
+        ("default", "system_default"),
+        ("something_weird", "user_explicit"),  # unknown -> safe default
+        ("compatibility", "compatibility"),  # valid values untouched
+    ]:
+        d = {
+            "name": "budget_limit",
+            "left_side": "total_price",
+            "operator": "<=",
+            "right_side": {"kind": "literal", "value": 1500},
+            "origin": raw_origin,
+        }
+        norm = normalize_raw_dict(4, d)
+        assert norm["origin"] == expected
+        # And the normalized dict validates into a strict Constraint
+        # (needs a known left_side only at PivotSchema level, not here)
+        assert Constraint.model_validate(norm).origin == expected

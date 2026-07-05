@@ -134,3 +134,33 @@ def test_toy_pack_infeasible_budget():
 
     assert response.status == "INFEASIBLE"
     assert response.feedback is not None
+
+
+def test_toy_pack_direct_attribute_objective_reported():
+    """objective_report must carry real values for direct 'category.attribute' targets."""
+    schema = PivotSchema.model_validate(
+        {
+            "user_intent": "cheapest protein",
+            "decision_variables": [
+                {
+                    "category": "protein",
+                    "required_attributes": [{"name": "cost", "data_type": "float"}],
+                },
+                {
+                    "category": "side",
+                    "required_attributes": [{"name": "cost", "data_type": "float"}],
+                },
+            ],
+            "objectives": [
+                {"target_variable": "protein.cost", "direction": "minimize"}
+            ],
+        }
+    )
+    response = run_solver_pipeline(_request(schema))
+
+    assert response.status == "SUCCESS"
+    item = response.result.objective_report[0]
+    assert item.target == "protein.cost"
+    # Cheapest protein: lentil patty at 2.10 — value must not be the old 0.0 default
+    assert item.value == pytest.approx(2.10)
+    assert item.value == pytest.approx(response.result.selections["protein"]["cost"])
