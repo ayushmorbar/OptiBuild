@@ -202,8 +202,3 @@ my_env.tfvars
 
 # A2A Inspector
 tools/a2a-inspector/
-
-# docs/ is tracked (eval report, capstone assets)
-
-# 5dgai: raw PC-components CSVs (large, not versioned)
-/data/pc-csv/*.csv
