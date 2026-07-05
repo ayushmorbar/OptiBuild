@@ -26,9 +26,10 @@ def test_clean_systematic():
 
     handle = store.create({"cpu": cpu_df})
 
-    # 2. Setup mock metadata dict
+    # 2. Setup mock metadata dict (declares its cost column, like the PC pack)
     metadata = {
         "version": "1.0",
+        "primary_cost_column": "price",
         "datasets": [
             {
                 "category_key": "cpu",
@@ -71,3 +72,39 @@ def test_clean_systematic():
     assert list(cleaned_df["name"]) == ["A", "E", "F", "G"]
     assert list(cleaned_df["price"]) == [100.0, 105.0, 115.0, 120.0]
     assert float(cleaned_df.iloc[0]["core_count"]) == 6.0
+
+
+def test_clean_systematic_without_cost_column():
+    """Packs without a primary cost column only get metadata-driven numeric coercion."""
+    df = pd.DataFrame(
+        {
+            "name": ["a", "b", "c"],
+            "cost": [5.0, -2.0, 3.0],  # negative would be dropped IF declared as cost
+            "score": ["10", "bad", "30"],
+        }
+    )
+    handle = store.create({"item": df})
+    metadata = {
+        "version": "1.0",
+        "datasets": [
+            {
+                "category_key": "item",
+                "file_name": "item.csv",
+                "description": "Items",
+                "synonyms": [],
+                "columns": {
+                    "name": {"type": "str", "required": True},
+                    "cost": {"type": "float", "required": False},
+                    "score": {"type": "int", "required": False},
+                },
+            }
+        ],
+    }
+
+    report = clean_systematic(handle, metadata)
+    cat_report = report.per_category["item"]
+
+    # Only the non-numeric 'score' row dropped; negative cost kept (no cost rules)
+    assert cat_report.rows_dropped == 1
+    assert all("outliers" not in f and "null/<=0" not in f for f in cat_report.fixes)
+    assert len(store.get(handle)["item"]) == 2

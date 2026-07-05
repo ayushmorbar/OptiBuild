@@ -17,10 +17,25 @@ def run_solver_pipeline(
     request: SolverRequest, dynamic_clean_hook=None
 ) -> SolverResponse:
     """Run the deterministic solver pipeline, orchestrating the FastMCP tool functions in-process."""
-    schema = request.pivot_schema
+    metadata = catalog.load_metadata()
+    cost_column = metadata.get("primary_cost_column")
+
+    # 0. Resolve decision-variable categories to catalog keys (exact -> synonym -> fuzzy)
+    try:
+        schema, category_mapping, unresolved = catalog.resolve_schema_categories(
+            request.pivot_schema, metadata
+        )
+        resolution_trace = {}
+        if category_mapping:
+            resolution_trace["category_resolution"] = category_mapping
+        if unresolved:
+            resolution_trace["unresolved_categories"] = unresolved
+    except Exception as e:
+        # Resolution is a safety net: on any rewrite failure, solve the original schema
+        schema = request.pivot_schema
+        resolution_trace = {"category_resolution_error": str(e)}
 
     # 1. Load Data
-    metadata = catalog.load_metadata()
     categories = [dv.category for dv in schema.decision_variables]
     required_columns = {
         dv.category: [a.name for a in dv.required_attributes]
@@ -41,7 +56,7 @@ def run_solver_pipeline(
                 failed_constraints=[],
                 relaxation_suggestions=[],
             ),
-            trace={"stripped_terms": gate.stripped_terms},
+            trace={"stripped_terms": gate.stripped_terms, **resolution_trace},
         )
 
     # 3. Systematic cleaning
@@ -72,11 +87,12 @@ def run_solver_pipeline(
                 "rows_after_prefilter": prefilter_report.per_category,
                 "solve_ms": 0,
                 "stripped_terms": gate.stripped_terms,
+                **resolution_trace,
             },
         )
 
     # 6. CP-SAT Solver
-    report = cpsat.solve_build(handle, schema.model_dump())
+    report = cpsat.solve_build(handle, schema.model_dump(), cost_column=cost_column)
 
     # 7. Map report to response
     if report.status in ("OPTIMAL", "FEASIBLE"):
@@ -102,6 +118,7 @@ def run_solver_pipeline(
                 "rows_after_prefilter": prefilter_report.per_category,
                 "solve_ms": report.solve_ms,
                 "stripped_terms": gate.stripped_terms,
+                **resolution_trace,
             },
         )
     else:
@@ -149,5 +166,6 @@ def run_solver_pipeline(
                 "rows_after_prefilter": prefilter_report.per_category,
                 "solve_ms": report.solve_ms,
                 "stripped_terms": gate.stripped_terms,
+                **resolution_trace,
             },
         )

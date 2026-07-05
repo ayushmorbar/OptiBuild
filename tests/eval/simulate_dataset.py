@@ -19,12 +19,15 @@ import os
 import sys
 
 # Ensure app directory is importable
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+
+from google.adk.runners import InMemoryRunner
+from google.genai import Client, types
 
 from app.agent import root_agent
-from google.adk.runners import InMemoryRunner
-from google.genai import Client
-from google.genai import types
+
 
 def load_agents_block():
     """Loads the agents topology block from the latest trace file to ensure rubric compatibility."""
@@ -34,7 +37,7 @@ def load_agents_block():
             if filename.startswith("traces_") and filename.endswith(".json"):
                 filepath = os.path.join(trace_dir, filename)
                 try:
-                    with open(filepath, "r") as f:
+                    with open(filepath) as f:
                         data = json.load(f)
                         if "eval_cases" in data and len(data["eval_cases"]) > 0:
                             case = data["eval_cases"][0]
@@ -43,6 +46,7 @@ def load_agents_block():
                 except Exception:
                     continue
     return {}
+
 
 def generate_user_response(client, history, original_goal, simulator_model):
     """Uses a Gemini model to generate a natural follow-up response acting as the user."""
@@ -72,12 +76,13 @@ Follow these rules:
         print(f"Error calling simulator model: {e}")
         return "Okay, what parts are included in that configuration?"
 
+
 def clean_event(event_dict):
     """Filters out all extra fields not allowed by the strict EvaluationDataset schema."""
     cleaned = {}
     if event_dict.get("author") is not None:
         cleaned["author"] = event_dict["author"]
-    
+
     if event_dict.get("content") is not None:
         content = event_dict["content"]
         cleaned_content = {}
@@ -114,10 +119,12 @@ def clean_event(event_dict):
         cleaned["content"] = cleaned_content
     return cleaned
 
+
 def serialize_event(event):
     """Utility to turn an ADK Event object into a JSON-serializable dictionary."""
     raw_dict = json.loads(event.model_dump_json(exclude_none=True))
     return clean_event(raw_dict)
+
 
 async def simulate_case(client, case, max_turns, simulator_model):
     """Simulates a single case by running user simulation over max_turns."""
@@ -137,19 +144,17 @@ async def simulate_case(client, case, max_turns, simulator_model):
     # Turn 0: Send the initial prompt
     print("Turn 0 (User Request)...")
     new_message = types.Content(
-        role="user",
-        parts=[types.Part.from_text(text=initial_prompt)]
+        role="user", parts=[types.Part.from_text(text=initial_prompt)]
     )
     turn_events = [
         {
             "author": "user",
-            "content": {
-                "role": "user",
-                "parts": [{"text": initial_prompt}]
-            }
+            "content": {"role": "user", "parts": [{"text": initial_prompt}]},
         }
     ]
-    async for event in runner.run_async(user_id=uid, session_id=sid, new_message=new_message):
+    async for event in runner.run_async(
+        user_id=uid, session_id=sid, new_message=new_message
+    ):
         turn_events.append(serialize_event(event))
 
     # Extract agent response text for the simulator
@@ -162,11 +167,7 @@ async def simulate_case(client, case, max_turns, simulator_model):
     turn_agent_text = "".join(agent_text_parts)
     print(f"Agent response: {turn_agent_text[:120]}...")
 
-    turns.append({
-        "turn_index": 0,
-        "turn_id": "turn_0",
-        "events": turn_events
-    })
+    turns.append({"turn_index": 0, "turn_id": "turn_0", "events": turn_events})
     final_agent_text = turn_agent_text
 
     # Multi-turn follow-ups
@@ -183,7 +184,11 @@ async def simulate_case(client, case, max_turns, simulator_model):
                         if part.get("text") is not None:
                             u_text += part["text"]
                 # Agent event (not tool)
-                elif ev.get("author") == "root_agent" and ev.get("content") and ev["content"].get("role") == "model":
+                elif (
+                    ev.get("author") == "root_agent"
+                    and ev.get("content")
+                    and ev["content"].get("role") == "model"
+                ):
                     for part in ev["content"].get("parts", []):
                         if part.get("text") is not None:
                             a_text += part["text"]
@@ -193,24 +198,24 @@ async def simulate_case(client, case, max_turns, simulator_model):
                 history_str += f"Assistant: {a_text}\n"
 
         print(f"Generating follow-up for Turn {t_idx}...")
-        simulated_user_input = generate_user_response(client, history_str, initial_prompt, simulator_model)
+        simulated_user_input = generate_user_response(
+            client, history_str, initial_prompt, simulator_model
+        )
         print(f"Simulated User: {simulated_user_input}")
 
         print(f"Turn {t_idx} (Follow-up execution)...")
         followup_message = types.Content(
-            role="user",
-            parts=[types.Part.from_text(text=simulated_user_input)]
+            role="user", parts=[types.Part.from_text(text=simulated_user_input)]
         )
         f_events = [
             {
                 "author": "user",
-                "content": {
-                    "role": "user",
-                    "parts": [{"text": simulated_user_input}]
-                }
+                "content": {"role": "user", "parts": [{"text": simulated_user_input}]},
             }
         ]
-        async for event in runner.run_async(user_id=uid, session_id=sid, new_message=followup_message):
+        async for event in runner.run_async(
+            user_id=uid, session_id=sid, new_message=followup_message
+        ):
             f_events.append(serialize_event(event))
 
         agent_text_parts = []
@@ -222,50 +227,57 @@ async def simulate_case(client, case, max_turns, simulator_model):
         turn_agent_text = "".join(agent_text_parts)
         print(f"Agent response: {turn_agent_text[:120]}...")
 
-        turns.append({
-            "turn_index": t_idx,
-            "turn_id": f"turn_{t_idx}",
-            "events": f_events
-        })
+        turns.append(
+            {"turn_index": t_idx, "turn_id": f"turn_{t_idx}", "events": f_events}
+        )
         final_agent_text = turn_agent_text
 
     # Build the trace structure for this case
     case_trace = {
-        "prompt": {
-            "parts": [{"text": initial_prompt}],
-            "role": "user"
-        },
+        "prompt": {"parts": [{"text": initial_prompt}], "role": "user"},
         "responses": [
-            {
-                "response": {
-                    "parts": [{"text": final_agent_text}],
-                    "role": "model"
-                }
-            }
+            {"response": {"parts": [{"text": final_agent_text}], "role": "model"}}
         ],
         "eval_case_id": eval_case_id,
-        "agent_data": {
-            "agents": load_agents_block(),
-            "turns": turns
-        }
+        "agent_data": {"agents": load_agents_block(), "turns": turns},
     }
     return case_trace
 
+
 async def main():
-    parser = argparse.ArgumentParser(description="Simulate multi-turn user follow-ups on the evaluation dataset.")
-    parser.add_argument("--max-turns", type=int, default=2, help="Max turns to simulate (default 2)")
-    parser.add_argument("--simulator-model", type=str, default="gemini-2.5-flash", help="Gemini model for simulated user (default gemini-2.5-flash)")
-    parser.add_argument("--dataset", type=str, default="tests/eval/datasets/basic-dataset.json", help="Path to input dataset")
-    parser.add_argument("--output", type=str, default="artifacts/traces/traces_simulated_multiturn.json", help="Path to save trace output")
+    parser = argparse.ArgumentParser(
+        description="Simulate multi-turn user follow-ups on the evaluation dataset."
+    )
+    parser.add_argument(
+        "--max-turns", type=int, default=2, help="Max turns to simulate (default 2)"
+    )
+    parser.add_argument(
+        "--simulator-model",
+        type=str,
+        default="gemini-2.5-flash",
+        help="Gemini model for simulated user (default gemini-2.5-flash)",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="tests/eval/datasets/basic-dataset.json",
+        help="Path to input dataset",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="artifacts/traces/traces_simulated_multiturn.json",
+        help="Path to save trace output",
+    )
     args = parser.parse_args()
 
-    print(f"Simulator settings:")
+    print("Simulator settings:")
     print(f"- Max Turns: {args.max_turns}")
     print(f"- Simulator Model: {args.simulator_model}")
     print(f"- Dataset: {args.dataset}")
     print(f"- Output: {args.output}")
 
-    with open(args.dataset, "r") as f:
+    with open(args.dataset) as f:
         dataset = json.load(f)
 
     client = Client()
@@ -273,7 +285,9 @@ async def main():
 
     for case in dataset["eval_cases"]:
         try:
-            case_trace = await simulate_case(client, case, args.max_turns, args.simulator_model)
+            case_trace = await simulate_case(
+                client, case, args.max_turns, args.simulator_model
+            )
             simulated_cases.append(case_trace)
         except Exception as e:
             print(f"Error simulating case {case.get('eval_case_id')}: {e}")
@@ -285,6 +299,7 @@ async def main():
     with open(args.output, "w") as f:
         json.dump({"eval_cases": simulated_cases}, f, indent=2)
     print(f"\nAll traces successfully saved to {args.output}!")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -1,6 +1,7 @@
 """NL front-end demo executing the entire modelization in one-shot."""
 
 import json
+import sys
 import uuid
 from pathlib import Path
 
@@ -27,7 +28,10 @@ from solver_app.agent import solve
 
 
 def main():
-    user_request = "cheap PC build, minimize total price, budget 1500"
+    user_request = (
+        " ".join(sys.argv[1:])
+        or "cheap PC build, maximise total price, budget 1500 and maximum memory"
+    )
     print(f"Executing one-shot modelization for query: '{user_request}'...")
 
     try:

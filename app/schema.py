@@ -24,48 +24,49 @@ _FORMULA_RE = re.compile(
 
 
 class AttributeRequirement(BaseModel):
-    """A dataset column the solver must have for one component category."""
+    """A dataset column the solver must have for one selected category."""
 
     name: str = Field(
-        ..., description="Column name in the category CSV, e.g. 'price', 'tdp'."
+        ..., description="Column name in the category CSV, e.g. 'cost', 'capacity'."
     )
     data_type: AttrType = Field(
         ..., description="Primitive type expected after cleaning."
     )
     unit: str | None = Field(
         default=None,
-        description="Physical unit if any, e.g. 'W', 'USD', 'GB'. For display only.",
+        description="Physical unit if any, e.g. 'W', 'USD', 'kg'. For display only.",
     )
 
 
 class DecisionVariable(BaseModel):
-    """One component category to pick exactly one part from."""
+    """One category to pick exactly one item from."""
 
     category: str = Field(
         ...,
         pattern=r"^[a-z0-9-]+$",
-        description="Dataset category key, e.g. 'cpu', 'video-card', 'power-supply'.",
+        description="Dataset category key from the catalog, e.g. 'category-a'.",
     )
     required_attributes: list[AttributeRequirement] = Field(
         ...,
         min_length=1,
-        description="Columns needed for this category. 'price' is always required implicitly.",
+        description="Columns needed for this category. The pack's primary cost column "
+        "is implicitly required when declared in metadata.",
     )
     optional: bool = Field(
         default=False,
-        description="True for nice-to-have categories (e.g. 'case-fan') the solver may drop "
+        description="True for nice-to-have categories the solver may drop "
         "if data is missing (Gate 2 logic, §6).",
     )
 
 
 class DerivedVariable(BaseModel):
-    """A computed aggregate over selected parts. Declared by the LLM, compiled by code."""
+    """A computed aggregate over selected items. Declared by the LLM, compiled by code."""
 
-    name: str = Field(..., pattern=r"^[a-z0-9_]+$", description="e.g. 'total_price'.")
+    name: str = Field(..., pattern=r"^[a-z0-9_]+$", description="e.g. 'total_cost'.")
     formula: str = Field(
         ...,
         description="Expression in the restricted grammar, e.g. "
-        "'sum(cpu.price, video-card.price, memory.price)'. Never free Python.",
+        "'sum(category-a.cost, category-b.cost)'. Never free Python.",
     )
     dependencies: list[str] = Field(
         ...,
@@ -108,14 +109,14 @@ class LiteralThreshold(BaseModel):
 
 
 class VarRefThreshold(BaseModel):
-    """Compares against another selected part's attribute; enforced inside CP-SAT."""
+    """Compares against another selected item's attribute; enforced inside CP-SAT."""
 
     kind: Literal["var_ref"] = "var_ref"
     ref: str = Field(
         ...,
         pattern=r"^[a-z0-9-]+\.[a-z0-9_]+$|^[a-z0-9_]+$",
         description="'category.attribute' term or a derived-variable name, "
-        "e.g. 'power-supply.wattage'.",
+        "e.g. 'category-b.capacity'.",
     )
 
 
@@ -143,7 +144,8 @@ class Constraint(BaseModel):
     coefficient: float = Field(
         default=1.0,
         gt=0.0,
-        description="Multiplier on the right-hand side: left <op> coefficient * right, e.g. 1.3 for PSU headroom.",
+        description="Multiplier on the right-hand side: left <op> coefficient * right, "
+        "e.g. 1.3 for a 30% capacity headroom margin.",
     )
     origin: Literal[
         "user_explicit", "kb_derived", "compatibility", "system_default"
@@ -269,7 +271,7 @@ class SolverResult(BaseModel):
     """Selections and metrics for a successful solver run."""
 
     selections: dict[str, dict] = Field(
-        ..., description="Selected components, keyed by category."
+        ..., description="Selected items, keyed by category."
     )
     derived_values: dict[str, float] = Field(
         default_factory=dict, description="Values of derived variables."
@@ -286,7 +288,7 @@ class SolverResult(BaseModel):
 class MissingAttribute(BaseModel):
     """Details of a missing attribute required for optimization."""
 
-    category: str = Field(..., description="The component category.")
+    category: str = Field(..., description="The dataset category.")
     attribute: str = Field(..., description="The missing attribute column name.")
     referenced_by: list[str] = Field(
         default_factory=list, description="The constraints referencing this attribute."
@@ -325,7 +327,7 @@ class SolverRequestContext(BaseModel):
 
     original_prompt: str = Field(..., description="Verbatim raw user request prompt.")
     locale_currency: str = Field(
-        default="USD", description="Currency code for price computations."
+        default="USD", description="Currency code for cost computations."
     )
 
 
@@ -468,6 +470,19 @@ CleanOp = Annotated[
     FilterRowsOp | DropNullsOp | MapValuesOp | ClipRangeOp,
     Field(discriminator="op"),
 ]
+
+
+class DomainContext(BaseModel):
+    """The active dataset pack's domain descriptor (metadata.json top-level fields).
+
+    Carries pack-declared domain knowledge into prompts and evaluation; every
+    field is optional so a pack without them gets fully generic behavior.
+    """
+
+    name: str = "configuration"
+    description: str = ""
+    safety_notes: list[str] = Field(default_factory=list)
+    primary_cost_column: str | None = None
 
 
 class DatasetMatch(BaseModel):

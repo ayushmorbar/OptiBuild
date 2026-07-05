@@ -1,24 +1,19 @@
-"""Concierge Runner wiring the real LLM extractor, judge, and in-process solver client."""
+"""Concierge Runner wiring the real LLM extractor, judge, and in-process solver client.
 
-import json
-from pathlib import Path
+Fully pack-driven: the active dataset pack (GAUSS_DATA_DIR, default data/pc-csv)
+supplies the catalog, the completeness policy, and the domain prompt context.
+"""
 
 
 def build_catalog_summary() -> str:
-    """Read data/pc-csv/metadata.json and construct a catalog summary string."""
-    repo_root = Path(__file__).resolve().parents[1]
-    metadata_path = repo_root / "data" / "pc-csv" / "metadata.json"
-    if not metadata_path.exists():
-        return ""
-    with open(metadata_path, encoding="utf-8") as f:
-        data = json.load(f)
+    """Catalog summary of the active pack (kept for backward compatibility)."""
+    from app.mcp_server import catalog
 
-    lines = []
-    for ds in data.get("datasets", []):
-        cat = ds.get("category_key")
-        cols = list(ds.get("columns", {}).keys())
-        lines.append(f"- Category: {cat}, Columns: {', '.join(cols)}")
-    return "\n".join(lines)
+    try:
+        metadata = catalog.load_metadata()
+    except OSError:
+        return ""
+    return catalog.build_catalog_summary(metadata)
 
 
 def run(user_request: str) -> dict:
@@ -27,7 +22,10 @@ def run(user_request: str) -> dict:
     from app.concierge import run_concierge
     from app.llm_extractor import make_llm_extractor
     from app.llm_judge import make_llm_judge
+    from app.mcp_server import catalog
     from app.schema import SolverResponse
+
+    metadata = catalog.load_metadata()
 
     def solver_client(req):
         resp_dict = solver_app.agent.solve(req.model_dump())
@@ -35,8 +33,10 @@ def run(user_request: str) -> dict:
 
     return run_concierge(
         user_request=user_request,
-        catalog_summary=build_catalog_summary(),
+        catalog_summary=catalog.build_catalog_summary(metadata),
         extractor=make_llm_extractor(),
         judge=make_llm_judge(),
         solver_client=solver_client,
+        required_categories=metadata.get("required_categories"),
+        domain=catalog.get_domain_context(metadata),
     )

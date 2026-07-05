@@ -94,7 +94,7 @@ try:
             skills=[
                 AgentSkill(
                     name="optimization",
-                    description="PC build CP-SAT optimization",
+                    description="CP-SAT configuration optimization over the active dataset pack",
                 )
             ]
         ),

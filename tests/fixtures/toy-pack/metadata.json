@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "domain": {
+    "name": "meal plan",
+    "description": "Composing a meal from a protein and a side under cost and nutrition constraints."
+  },
+  "required_categories": ["protein", "side"],
+  "primary_cost_column": "cost",
+  "safety_notes": ["unsafe food-handling or spoiled-ingredient advice"],
+  "datasets": [
+    {
+      "file_name": "protein.csv",
+      "category_key": "protein",
+      "description": "Main protein dishes with cost, calories and preparation time.",
+      "synonyms": ["main dish", "main course", "entree"],
+      "record_count": 5,
+      "columns": {
+        "name": {"type": "str", "required": true},
+        "cost": {"type": "float", "required": true, "unit": "USD"},
+        "calories": {"type": "int", "required": false, "unit": "kcal"},
+        "prep_minutes": {"type": "int", "required": false, "unit": "min"}
+      },
+      "known_quirks": []
+    },
+    {
+      "file_name": "side.csv",
+      "category_key": "side",
+      "description": "Side dishes with cost and calories.",
+      "synonyms": ["side dish", "accompaniment"],
+      "record_count": 5,
+      "columns": {
+        "name": {"type": "str", "required": true},
+        "cost": {"type": "float", "required": true, "unit": "USD"},
+        "calories": {"type": "int", "required": false, "unit": "kcal"}
+      },
+      "known_quirks": []
+    }
+  ]
+}

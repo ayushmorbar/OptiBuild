@@ -1,12 +1,22 @@
-"""scripts/gen_metadata.py — Dataset metadata catalog generator."""
+"""scripts/gen_metadata.py — Dataset metadata catalog generator.
 
+Regenerates the `datasets` section of a pack's metadata.json from its CSVs,
+preserving all hand-authored fields (descriptions, synonyms, quirks, column
+flags) and every top-level pack field (domain, required_categories,
+primary_cost_column, safety_notes). Pack selected via --data-dir or GAUSS_DATA_DIR.
+"""
+
+import argparse
 import glob
 import json
 import os
+import sys
 
 import pandas as pd
 
-METADATA_PATH = "data/pc-csv/metadata.json"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from app.mcp_server.pack import get_data_dir
 
 HAND_AUTHORED_DEFAULTS = {
     "case-accessory": {
@@ -150,19 +160,35 @@ def get_inferred_type(dtype) -> str:
 
 
 def main():
-    # Load existing metadata if it exists
+    parser = argparse.ArgumentParser(
+        description="Generate a pack's metadata.json from its CSVs."
+    )
+    parser.add_argument(
+        "--data-dir",
+        default=str(get_data_dir()),
+        help="Pack directory containing the CSVs (default: active pack via GAUSS_DATA_DIR).",
+    )
+    args = parser.parse_args()
+    data_dir = args.data_dir
+    metadata_path = os.path.join(data_dir, "metadata.json")
+
+    # Load existing metadata if it exists (both top-level fields and per-dataset entries)
     existing_data = {}
-    if os.path.exists(METADATA_PATH):
+    old_meta = {}
+    if os.path.exists(metadata_path):
         try:
-            with open(METADATA_PATH, encoding="utf-8") as f:
+            with open(metadata_path, encoding="utf-8") as f:
                 old_meta = json.load(f)
                 for ds in old_meta.get("datasets", []):
                     existing_data[ds["category_key"]] = ds
         except Exception as e:
             print(f"Warning: could not parse existing metadata.json: {e}")
 
+    # The pack's primary cost column drives the default column-required flag
+    primary_cost_column = old_meta.get("primary_cost_column")
+
     # Scan directory for CSVs
-    csv_files = glob.glob("data/pc-csv/*.csv")
+    csv_files = glob.glob(os.path.join(data_dir, "*.csv"))
     datasets = []
 
     for filepath in sorted(csv_files):
@@ -198,27 +224,21 @@ def main():
             # Keep inferred type
             merged_col = {"type": col_meta["type"]}
 
-            # Merge required
+            # Merge required: 'name' and the pack's declared cost column default to required
             if "required" in old_col:
                 merged_col["required"] = old_col["required"]
             else:
-                merged_col["required"] = col_name in ("name", "price")
+                merged_col["required"] = col_name == "name" or (
+                    primary_cost_column is not None and col_name == primary_cost_column
+                )
 
-            # Merge unit
+            # Merge unit (units are hand-authored pack data; only preserved, never invented)
             if "unit" in old_col:
                 merged_col["unit"] = old_col["unit"]
-            elif col_name == "price":
-                merged_col["unit"] = "USD"
-            elif col_name in ("tdp", "wattage"):
-                merged_col["unit"] = "W"
 
             # Merge note
             if "note" in old_col:
                 merged_col["note"] = old_col["note"]
-            elif category_key == "cpu" and col_name == "microarchitecture":
-                merged_col["note"] = (
-                    "socket is NOT a column; derived via kb compatibility map (§7)"
-                )
 
             # Keep any other old keys
             for k, v in old_col.items():
@@ -238,15 +258,18 @@ def main():
         }
         datasets.append(dataset_entry)
 
+    # Preserve every top-level pack field (domain, required_categories,
+    # primary_cost_column, safety_notes, ...); only 'datasets' is regenerated.
     output_data = {
+        **{k: v for k, v in old_meta.items() if k != "datasets"},
         "version": "1.0",
         "datasets": datasets,
     }
 
-    os.makedirs(os.path.dirname(METADATA_PATH), exist_ok=True)
-    with open(METADATA_PATH, "w", encoding="utf-8") as f:
+    os.makedirs(data_dir, exist_ok=True)
+    with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(output_data, f, indent=2, ensure_ascii=False)
-    print(f"Successfully generated {METADATA_PATH} with {len(datasets)} datasets.")
+    print(f"Successfully generated {metadata_path} with {len(datasets)} datasets.")
 
 
 if __name__ == "__main__":

@@ -319,3 +319,83 @@ def test_cpsat_solver_multi_objective():
     assert report_perf.status == "FEASIBLE"
     assert report_perf.selections["cpu"]["name"] == "Core i5-13600K"
     assert report_perf.selections["memory"]["name"] == "G.Skill 32GB"
+
+
+def test_row_cap_without_cost_column():
+    """Frames larger than ROW_CAP must be capped without a 'price' KeyError."""
+    from app.mcp_server.cpsat import ROW_CAP, _cap_rows
+
+    n = ROW_CAP + 50
+    df = pd.DataFrame(
+        {
+            "name": [f"item-{i}" for i in range(n)],
+            "score": list(range(n)),
+        }
+    )
+    schema = PivotSchema.model_validate(
+        {
+            "user_intent": "best item",
+            "decision_variables": [
+                {
+                    "category": "item",
+                    "required_attributes": [{"name": "score", "data_type": "int"}],
+                }
+            ],
+            "objectives": [{"target_variable": "item.score", "direction": "maximize"}],
+        }
+    )
+
+    # 1. Declared cost column present -> sorted ascending on it
+    df_cost = df.assign(cost=[float(n - i) for i in range(n)])
+    capped = _cap_rows(df_cost, "item", schema, "cost")
+    assert len(capped) == ROW_CAP
+    assert capped["cost"].iloc[0] == capped["cost"].min()
+
+    # 2. No cost column -> fall back to the objective's numeric target (maximize -> desc)
+    capped = _cap_rows(df, "item", schema, None)
+    assert len(capped) == ROW_CAP
+    assert capped["score"].iloc[0] == n - 1
+
+    # 3. No cost column, no numeric objective for this category -> positional cap
+    schema_other = PivotSchema.model_validate(
+        {
+            "user_intent": "x",
+            "decision_variables": [
+                {
+                    "category": "item",
+                    "required_attributes": [{"name": "name", "data_type": "str"}],
+                }
+            ],
+            "derived_variables": [
+                {
+                    "name": "total_count",
+                    "formula": "sum(item.score)",
+                    "dependencies": ["item"],
+                }
+            ],
+            "objectives": [{"target_variable": "total_count", "direction": "maximize"}],
+        }
+    )
+    capped = _cap_rows(df, "item", schema_other, None)
+    assert len(capped) == ROW_CAP
+    assert list(capped["name"])[:3] == ["item-0", "item-1", "item-2"]
+
+
+def test_cpsat_solve_without_cost_column_end_to_end():
+    """Full solve on a pack whose frames have no 'price' column at all."""
+    frames = {"item": pd.DataFrame({"name": ["a", "b", "c"], "cost": [3.0, 1.0, 2.0]})}
+    schema = PivotSchema.model_validate(
+        {
+            "user_intent": "cheapest item",
+            "decision_variables": [
+                {
+                    "category": "item",
+                    "required_attributes": [{"name": "cost", "data_type": "float"}],
+                }
+            ],
+            "objectives": [{"target_variable": "item.cost", "direction": "minimize"}],
+        }
+    )
+    report = build_and_solve(frames, schema, cost_column="cost")
+    assert report.status == "OPTIMAL"
+    assert report.selections["item"]["name"] == "b"
