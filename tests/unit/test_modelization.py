@@ -161,9 +161,9 @@ def test_modelization_extractor_skips_invalid_keeps_valid():
         "is_hard": True,
     }
     invalid_constraint = {
-        "name": "INVALID CAP WITH SPACES AND PATTERN ERROR",
+        "name": "truly_invalid",
         "left_side": "total_price",
-        "operator": "<=",
+        "operator": "APPROX",  # not a valid operator literal -> unrepairable
         "right_side": {"kind": "literal", "value": 1500.0},
         "is_hard": True,
     }
@@ -273,9 +273,9 @@ def test_build_schema_oneshot_skips_invalid():
         "objectives": CANNED_OBJECTIVES,
         "constraints": [
             {
-                "name": "INVALID CAP NAME WITH SPACES",
+                "name": "truly_invalid",
                 "left_side": "total_price",
-                "operator": "<=",
+                "operator": "APPROX",  # unrepairable
                 "right_side": {"kind": "literal", "value": 1500.0},
                 "is_hard": True,
             },
@@ -455,3 +455,89 @@ def test_constraint_origin_synonyms_normalized():
         # And the normalized dict validates into a strict Constraint
         # (needs a known left_side only at PivotSchema level, not here)
         assert Constraint.model_validate(norm).origin == expected
+
+
+def test_threshold_kind_synonyms_normalized():
+    """kind='variable' (and content mismatches) observed live -> normalized."""
+    from app.modelization import normalize_raw_dict
+
+    # 'variable' with a ref -> var_ref
+    d = {
+        "name": "psu_headroom",
+        "left_side": "total_tdp",
+        "operator": "<=",
+        "right_side": {
+            "kind": "variable",
+            "value": None,
+            "ref": "power-supply.wattage",
+        },
+    }
+    assert normalize_raw_dict(4, d)["right_side"]["kind"] == "var_ref"
+
+    # 'literal' but only a ref present -> var_ref
+    d2 = {
+        "name": "c2",
+        "left_side": "x",
+        "operator": "<=",
+        "right_side": {"kind": "literal", "value": None, "ref": "cpu.tdp"},
+    }
+    assert normalize_raw_dict(4, d2)["right_side"]["kind"] == "var_ref"
+
+    # 'var_ref' but only a value present -> literal
+    d3 = {
+        "name": "c3",
+        "left_side": "x",
+        "operator": "<=",
+        "right_side": {"kind": "var_ref", "value": 1500, "ref": None},
+    }
+    assert normalize_raw_dict(4, d3)["right_side"]["kind"] == "literal"
+
+
+def test_class_name_kinds_and_name_slugs_normalized():
+    """Vertex-flavored output: kind='literalthreshold' + names needing slugs."""
+    from app.modelization import normalize_raw_dict
+
+    d = {
+        "name": "Budget Cap (Hard)",
+        "left_side": "total_price",
+        "operator": "<=",
+        "right_side": {"kind": "LiteralThreshold", "value": 1500.0, "ref": None},
+    }
+    norm = normalize_raw_dict(4, d)
+    assert norm["name"] == "budget_cap_hard"
+    assert norm["right_side"]["kind"] == "literal"
+
+    d2 = {
+        "name": "psu",
+        "left_side": "x",
+        "operator": "<=",
+        "right_side": {"kind": "VarRefThreshold", "value": None, "ref": "a.b"},
+    }
+    assert normalize_raw_dict(4, d2)["right_side"]["kind"] == "var_ref"
+
+
+def test_stage4_catalog_filtered_to_selected_categories():
+    """Anti-bloating: stage 4 must only receive the stage-1 categories' lines."""
+    summary = "\n".join(
+        f"- {c}: desc | columns: name(str), price(float)"
+        for c in ["cpu", "memory", "monitor", "keyboard", "mouse"]
+    )
+    seen_prompts = {}
+
+    def mock_extractor(stage, prompt):
+        seen_prompts[stage] = prompt
+        if stage == 1:
+            return CANNED_DECISION_VARIABLES  # cpu + memory only
+        if stage == 2:
+            return CANNED_DERIVED_VARIABLES
+        if stage == 3:
+            return CANNED_OBJECTIVES
+        return CANNED_CONSTRAINTS
+
+    run_modelization("Build PC", summary, mock_extractor)
+
+    assert "- monitor:" in seen_prompts[1]  # stage 1 sees the full catalog
+    assert "- cpu:" in seen_prompts[4]
+    assert "- memory:" in seen_prompts[4]
+    assert "- monitor:" not in seen_prompts[4]  # stage 4 filtered
+    assert "- keyboard:" not in seen_prompts[4]

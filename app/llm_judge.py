@@ -6,6 +6,7 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 
+from app.llm_extractor import JUDGE_THINKING_BUDGET
 from app.prompt_contracts import build_judge_prompt
 from app.schema import FidelityViolation, PivotSchema
 
@@ -28,7 +29,12 @@ def make_llm_judge(model="gemini-flash-latest"):
         if client is None:
             client = genai.Client()
 
-        prompt = build_judge_prompt(user_request, schema.model_dump_json())
+        # Compact schema dump: defaults/nulls carry no signal for the judge
+        schema_json = json.dumps(
+            schema.model_dump(exclude_defaults=True, exclude_none=True),
+            separators=(",", ":"),
+        )
+        prompt = build_judge_prompt(user_request, schema_json)
         response = client.models.generate_content(
             model=model,
             contents=prompt,
@@ -36,6 +42,9 @@ def make_llm_judge(model="gemini-flash-latest"):
                 response_mime_type="application/json",
                 response_schema=JudgeResult,
                 temperature=0.0,
+                thinking_config=types.ThinkingConfig(
+                    thinking_budget=JUDGE_THINKING_BUDGET
+                ),
             ),
         )
 

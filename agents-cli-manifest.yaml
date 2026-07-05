@@ -6,10 +6,10 @@ base_template: "adk"
 generated_at: "2026-06-28T15:19:24.373762+00:00"
 language: "python"
 create_params:
-  deployment_target: "none"
+  deployment_target: "cloud_run"
   session_type: "in_memory"
   cicd_runner: "skip"
   include_data_ingestion: false
-  
+
   datastore: "none"
   agent_guidance_filename: "GEMINI.md"

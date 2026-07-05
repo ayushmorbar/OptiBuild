@@ -12,6 +12,18 @@ from app.extraction_schemas import (
     ObjectiveLite,
 )
 
+# Bounded thinking budgets per modelization stage (tokens). Unbounded dynamic
+# thinking is the dominant hidden output cost; we keep reasoning where it drives
+# modeling quality and cap it where the task is closer to translation.
+THINKING_BUDGETS = {
+    1: 512,  # decision variables: which categories fit the intent
+    2: 512,  # derived variables: which aggregates matter for the goals
+    3: 1024,  # objectives + weights: the core OR-modeling judgment
+    4: 512,  # constraints: translating explicit bounds
+}
+ONESHOT_THINKING_BUDGET = 1024  # does all four stages in one pass
+JUDGE_THINKING_BUDGET = 512
+
 
 def make_llm_extractor(model="gemini-flash-latest"):
     """Create and return a lazy structured extraction callable.
@@ -40,6 +52,9 @@ def make_llm_extractor(model="gemini-flash-latest"):
                 response_mime_type="application/json",
                 response_schema=response_schema,
                 temperature=0.0,
+                thinking_config=types.ThinkingConfig(
+                    thinking_budget=THINKING_BUDGETS[stage]
+                ),
             ),
         )
 
@@ -86,6 +101,9 @@ def make_oneshot_extractor(model="gemini-flash-latest"):
                 response_mime_type="application/json",
                 response_schema=PivotSchemaLite,
                 temperature=0.0,
+                thinking_config=types.ThinkingConfig(
+                    thinking_budget=ONESHOT_THINKING_BUDGET
+                ),
             ),
         )
 

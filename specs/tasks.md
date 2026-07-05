@@ -253,7 +253,7 @@ engine code. ✔
 > **Not started — external dependencies:** eval needs LLM quota (paid Gemini API tier); deployment needs GCP + billing.
 
 - [ ] **7.1 Eval assets** (`eval/`)
-  - [ ] `basic-dataset.json`: 20 multi-turn cases spanning Phase-6 scenario classes
+  - [ ] `basic-dataset.json`: 23 cases (single-prompt EvalSet) spanning Phase-6 scenario classes
         (happy, multi-objective, missing-data, infeasible, guardrail).
   - [ ] `eval_config.yaml`: `multi_turn_task_success`, `final_response_quality`,
         `multi_turn_tool_use_quality`.

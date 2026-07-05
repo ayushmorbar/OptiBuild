@@ -218,7 +218,7 @@ uv run ruff check .              # lint
 - Dynamic-cleaning hook not yet invoked by the pipeline (capability implemented & tested)
 - A2A over HTTP (solver currently called in-process; contract identical)
 - Budget sanitization at intake
-- Phase 7: `agents-cli eval` suite (20 cases) + Cloud Run / Agent Engine deployment
+- Phase 7: `agents-cli eval` suite (23 cases) + Cloud Run / Agent Engine deployment
 
 ## Team
 

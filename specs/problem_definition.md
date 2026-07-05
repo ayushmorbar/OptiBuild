@@ -38,7 +38,7 @@ flowchart TB
     UserQuery --> Orchestrator
     Orchestrator --> ORModeler
     ORModeler --> EvaluatorSkill
-    
+
     EvaluatorSkill -- "Below Threshold" --> LoopGuard
     LoopGuard -- "Yes" --> Orchestrator
     LoopGuard -- "No (Fail)" --> UserQuery
@@ -50,13 +50,13 @@ flowchart TB
     %% Solver fetching and gating
     SolverAgent --> FetchDataTool
     FetchDataTool --> DataGate1
-    
+
     DataGate1 -- "YES" --> SystematicClean
     DataGate1 -- "NO" --> DataGate2
-    
+
     DataGate2 -- "YES" --> A2AFeedback["[A2A Response: Feasibility Feedback]"] --> Orchestrator
     DataGate2 -- "NO" --> SystematicClean
-    
+
     SystematicClean --> DynamicClean
     DynamicClean --> SolveOptTool
 
@@ -87,49 +87,49 @@ from pydantic import BaseModel, Field, field_validator
 
 class AttributeRequirement(BaseModel):
     name: str = Field(
-        ..., 
+        ...,
         description="Name of the attribute column in the dataset (e.g., 'price', 'tdp')"
     )
     data_type: Literal["float", "int", "str", "bool"] = Field(
-        ..., 
+        ...,
         description="Expected primitive type for model constraints and optimization math"
     )
 
 class DecisionVariable(BaseModel):
     category: str = Field(
-        ..., 
+        ...,
         description="Component category mapping directly to a dataset identifier (e.g., 'cpu', 'video-card')"
     )
     required_attributes: List[AttributeRequirement] = Field(
-        ..., 
+        ...,
         description="The columns that must be extracted from the dataset for this component category"
     )
 
 class DerivedVariable(BaseModel):
     name: str = Field(
-        ..., 
+        ...,
         description="Name of the computed variable (e.g., 'total_price', 'total_power_draw')"
     )
     formula_expression: str = Field(
-        ..., 
+        ...,
         description="Mathematical formula syntax using component attributes (e.g., 'sum(cpu.price, video-card.price)')"
     )
     dependencies: List[str] = Field(
-        ..., 
+        ...,
         description="Component categories or other derived variables involved in the formula"
     )
 
 class OptimizationObjective(BaseModel):
     target_variable: str = Field(
-        ..., 
+        ...,
         description="The variable to optimize (must be a decision variable attribute or derived variable)"
     )
     maximize: bool = Field(
-        default=True, 
+        default=True,
         description="True to maximize, False to minimize"
     )
     weight: float = Field(
-        default=1.0, 
+        default=1.0,
         description="The relative importance of this objective for TOPSIS ranking (must be > 0)"
     )
 
@@ -142,41 +142,41 @@ class OptimizationObjective(BaseModel):
 
 class Constraint(BaseModel):
     name: str = Field(
-        ..., 
+        ...,
         description="Unique slug identifying the constraint rules (e.g., 'gpu_tdp_cap')"
     )
     left_side: str = Field(
-        ..., 
+        ...,
         description="The variable expression evaluated on the left (e.g., 'total_power_draw')"
     )
     operator: Literal["<", "<=", "==", ">=", ">", "!="] = Field(
-        ..., 
+        ...,
         description="Relational operator matching CP-SAT supported comparisons"
     )
     right_side: Union[float, int, str, bool] = Field(
-        ..., 
+        ...,
         description="Threshold value or reference variable (e.g., 750 or 'psu.wattage')"
     )
     is_hard: bool = Field(
-        default=True, 
+        default=True,
         description="True if CP-SAT must enforce this strictly; False if treated as a soft penalty target"
     )
 
 class PivotSchema(BaseModel):
     decision_variables: List[DecisionVariable] = Field(
-        ..., 
+        ...,
         description="List of component categories and features to select"
     )
     derived_variables: List[DerivedVariable] = Field(
-        default_factory=list, 
+        default_factory=list,
         description="List of calculated variables representing aggregates or metrics"
     )
     objectives: List[OptimizationObjective] = Field(
-        ..., 
+        ...,
         description="List of target criteria to optimize. Single-objective maps directly; multi-objective runs TOPSIS"
     )
     constraints: List[Constraint] = Field(
-        ..., 
+        ...,
         description="Compatibility limits, budgeting bounds, and power consumption constraints"
     )
 ```
@@ -406,7 +406,7 @@ gauss/
 | **Agent / Multi-agent system (ADK)** | `app/agent.py` | Orchestrator Agent (Concierge) and Solver Specialist Agent interact using standard ADK A2A messaging protocol. |
 | **MCP Server** | `app/mcp_server.py` | FastMCP host containing deterministic code (CP-SAT and data indexing tools) called over Stdio. |
 | **Security Features** | `app/security.py` | Input sanitization, strict Pydantic parsing, and sandboxed Docker containers for LLM-generated code. |
-| **Agent skills (Agents CLI)** | `eval/` | Folder containing `basic-dataset.json` (20 test cases) and `eval_config.yaml` for grading optimization runs. |
+| **Agent skills (Agents CLI)** | `eval/` | Folder containing `basic-dataset.json` (23 test cases) and `eval_config.yaml` for grading optimization runs. |
 | **Deployability** | Vertex AI Runtime | Packaged using `agents-cli deploy` for containerized execution on Google Cloud runtimes. |
 
 ---

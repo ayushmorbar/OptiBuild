@@ -61,7 +61,9 @@ def normalize_raw_dict(stage: int, d: dict) -> dict:
                 formula = f"sum({', '.join(parts)})"
             d["formula"] = formula
         if isinstance(d.get("name"), str):
-            d["name"] = d["name"].strip().lower()
+            d["name"] = re.sub(r"[^a-z0-9_]+", "_", d["name"].strip().lower()).strip(
+                "_"
+            )
         # dependencies must be category keys; LLMs often emit full
         # 'category.attribute' terms — strip to the category part, dedupe.
         if isinstance(d.get("dependencies"), list):
@@ -82,9 +84,39 @@ def normalize_raw_dict(stage: int, d: dict) -> dict:
             }
             d["direction"] = dir_map.get(direc, direc)
     elif stage == 4:
+        # Constraint names must match ^[a-z0-9_]+$ — slugify LLM variants
+        if isinstance(d.get("name"), str):
+            d["name"] = re.sub(r"[^a-z0-9_]+", "_", d["name"].strip().lower()).strip(
+                "_"
+            )
         right_side = d.get("right_side")
         if isinstance(right_side, dict) and "kind" in right_side:
-            right_side["kind"] = str(right_side["kind"]).lower().strip()
+            kind = str(right_side["kind"]).lower().strip()
+            kind_map = {
+                "variable": "var_ref",
+                "ref": "var_ref",
+                "reference": "var_ref",
+                "value": "literal",
+                "constant": "literal",
+                # LLMs sometimes echo the Pydantic class names
+                "literalthreshold": "literal",
+                "varrefthreshold": "var_ref",
+            }
+            kind = kind_map.get(kind, kind)
+            # LLMs sometimes emit kind='literal' with a ref (or vice versa) — fix by content
+            if (
+                kind == "literal"
+                and right_side.get("value") is None
+                and right_side.get("ref")
+            ):
+                kind = "var_ref"
+            elif (
+                kind == "var_ref"
+                and right_side.get("ref") is None
+                and right_side.get("value") is not None
+            ):
+                kind = "literal"
+            right_side["kind"] = kind
         # origin is provenance metadata; LLMs improvise variants -> normalize,
         # defaulting anything unknown to 'user_explicit' (the safe provenance).
         if "origin" in d:
@@ -121,6 +153,30 @@ _STAGE_LABELS = {
     3: "objective",
     4: "constraint",
 }
+
+
+def _dump_items(items: list) -> list[dict]:
+    """Token-lean dumps for prior-stage context: defaults and nulls carry no signal."""
+    return [i.model_dump(exclude_defaults=True, exclude_none=True) for i in items]
+
+
+def _compact_json(data: dict) -> str:
+    return json.dumps(data, separators=(",", ":"))
+
+
+def _filter_summary_lines(catalog_summary: str, categories: set[str]) -> str:
+    """Keep only the '- <category>: ...' summary lines for the given categories.
+
+    Falls back to the full summary when nothing matches (safety net).
+    """
+    if not categories:
+        return catalog_summary
+    kept = [
+        line
+        for line in catalog_summary.splitlines()
+        if any(line.startswith(f"- {c}:") for c in categories)
+    ]
+    return "\n".join(kept) if kept else catalog_summary
 
 
 def _validate_items(stage: int, raw: list[dict]) -> list:
@@ -298,34 +354,35 @@ def run_modelization(
                 user_request, catalog_summary, repair_feedback, domain=domain
             )
         elif stage == 2:
-            prior_dict = {
-                "decision_variables": [dv.model_dump() for dv in outputs.get(1, [])]
-            }
-            prior_json = json.dumps(prior_dict, indent=2)
+            prior_dict = {"decision_variables": _dump_items(outputs.get(1, []))}
+            prior_json = _compact_json(prior_dict)
             prompt = build_stage2_prompt(
                 user_request, prior_json, repair_feedback, domain=domain
             )
         elif stage == 3:
             prior_dict = {
-                "decision_variables": [dv.model_dump() for dv in outputs.get(1, [])],
-                "derived_variables": [dv.model_dump() for dv in outputs.get(2, [])],
+                "decision_variables": _dump_items(outputs.get(1, [])),
+                "derived_variables": _dump_items(outputs.get(2, [])),
             }
-            prior_json = json.dumps(prior_dict, indent=2)
+            prior_json = _compact_json(prior_dict)
             prompt = build_stage3_prompt(
                 user_request, prior_json, repair_feedback, domain=domain
             )
         else:
             # stage 4
             prior_dict = {
-                "decision_variables": [dv.model_dump() for dv in outputs.get(1, [])],
-                "derived_variables": [dv.model_dump() for dv in outputs.get(2, [])],
-                "objectives": [obj.model_dump() for obj in outputs.get(3, [])],
+                "decision_variables": _dump_items(outputs.get(1, [])),
+                "derived_variables": _dump_items(outputs.get(2, [])),
+                "objectives": _dump_items(outputs.get(3, [])),
             }
-            prior_json = json.dumps(prior_dict, indent=2)
+            prior_json = _compact_json(prior_dict)
+            # Anti-bloating: stage 4 only needs the categories selected at stage 1
+            selected = {dv.category for dv in outputs.get(1, [])}
+            stage4_summary = _filter_summary_lines(catalog_summary, selected)
             prompt = build_stage4_prompt(
                 user_request,
                 prior_json,
-                catalog_summary,
+                stage4_summary,
                 repair_feedback,
                 domain=domain,
             )

@@ -17,6 +17,7 @@ import asyncio
 import json
 import os
 import sys
+from pathlib import Path
 
 # Ensure app directory is importable
 sys.path.insert(
@@ -31,7 +32,7 @@ from app.agent import root_agent
 
 def load_agents_block():
     """Loads the agents topology block from the latest trace file to ensure rubric compatibility."""
-    trace_dir = "/home/kejia/gauss/artifacts/traces"
+    trace_dir = str(Path(__file__).resolve().parents[2] / "artifacts" / "traces")
     if os.path.exists(trace_dir):
         for filename in sorted(os.listdir(trace_dir), reverse=True):
             if filename.startswith("traces_") and filename.endswith(".json"):

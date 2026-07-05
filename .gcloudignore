@@ -1,0 +1,17 @@
+# Files NOT uploaded to Cloud Build when deploying from source.
+# Starts from .gitignore, then re-includes the dataset pack CSVs
+# (git-ignored for size, but REQUIRED inside the container).
+.git
+.gitignore
+#!include:.gitignore
+!data/pc-csv/*.csv
+
+# Not needed in the container
+tests/
+artifacts/
+specs/
+scripts/
+.claude/
+.pre-commit-config.yaml
+GEMINI.md
+development_history.md

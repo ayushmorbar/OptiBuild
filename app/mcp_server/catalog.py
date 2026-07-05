@@ -104,22 +104,32 @@ def search_datasets(query: str, metadata: dict) -> list[DatasetMatch]:
     return matches
 
 
-def build_catalog_summary(metadata: dict) -> str:
-    """One line per dataset (key, description, synonyms, typed columns) for LLM prompts."""
+_SUMMARY_DESC_MAX = 60
+
+
+def build_catalog_summary(metadata: dict, categories: list[str] | None = None) -> str:
+    """One compact line per dataset (key, short description, typed columns) for LLM prompts.
+
+    Deliberately lean to avoid context bloating: synonyms are NOT included (user
+    vocabulary is resolved server-side by resolve_schema_categories), descriptions
+    are truncated, and `categories` optionally restricts the summary to a subset
+    (e.g. stage 4 only needs the categories selected at stage 1).
+    """
+    wanted = set(categories) if categories is not None else None
     lines = []
     for ds in metadata.get("datasets", []):
+        if wanted is not None and ds["category_key"] not in wanted:
+            continue
         cols = ", ".join(
             f"{name}({info.get('type', 'str')}"
             + (f", {info['unit']}" if info.get("unit") else "")
             + ")"
             for name, info in ds.get("columns", {}).items()
         )
-        syn = ", ".join(ds.get("synonyms", []))
-        line = f"- {ds['category_key']}: {ds.get('description', '')}"
-        if syn:
-            line += f" | synonyms: {syn}"
-        line += f" | columns: {cols}"
-        lines.append(line)
+        desc = ds.get("description", "")
+        if len(desc) > _SUMMARY_DESC_MAX:
+            desc = desc[: _SUMMARY_DESC_MAX - 1].rstrip() + "…"
+        lines.append(f"- {ds['category_key']}: {desc} | columns: {cols}")
     return "\n".join(lines)
 
 
