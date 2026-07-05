@@ -40,6 +40,7 @@ def get_domain_context(metadata: dict) -> DomainContext:
         description=d.get("description", ""),
         safety_notes=metadata.get("safety_notes", []),
         primary_cost_column=metadata.get("primary_cost_column"),
+        required_categories=metadata.get("required_categories") or [],
     )
 
 

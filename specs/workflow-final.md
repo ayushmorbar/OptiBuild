@@ -1,24 +1,32 @@
 # 5dgai — Optimisation Agent: Final System Workflow
 
-As-built successor of `specs/workflow.md` (the initial modelization). It reflects the real,
-verified structure of the system after the root_agent rewiring (commit `28d5ba8`).
+As-built successor of `specs/workflow.md` (the initial modelization). Reflects the real,
+verified structure as of **2026-07-05** — deployed on Cloud Run (revision `gauss-00008`),
+108 offline tests green. Quality assessment: `specs/quality-audit.md`.
 
 Differences vs. the initial workflow:
 
 - **Node G (KB → numeric thresholds) dropped** — owner decision 2026-07-04: qualitative intent
   becomes optimization *objectives*, explicit numbers become literal constraints. No knowledge base.
-- **Note n8 superseded** — the LLM never generates/executes code: dynamic cleaning is read-only
-  `query_data` + declarative `CleanOp`s validated server-side (zero `exec`/`eval`).
-- **Evaluator is hybrid** — deterministic completeness (8 required categories) + coherence first;
-  the LLM judge (intent fidelity) only runs when they pass.
-- **Entry point is real** — `adk web` → `root_agent` → `optimize_request` tool → the full loop.
-- **Domain-agnostic engine (2026-07-05)** — zero domain knowledge in code: the active *dataset
-  pack* (`GAUSS_DATA_DIR`, default `data/pc-csv`) supplies the catalog, domain name, safety
-  notes, `required_categories` (evaluator completeness) and `primary_cost_column` (implicit
-  column, CP-SAT row-cap sort, cleaning rules). Decision-variable categories are resolved to
-  catalog keys by metadata search (exact → synonym → fuzzy) before data loading.
-- Yellow nodes mark the two remaining gaps: the dynamic-cleaning hook is implemented but not
-  invoked by the pipeline, and the Solver is called in-process (A2A HTTP export pending).
+- **Note n8 superseded, node n7 WIRED (2026-07-05)** — the LLM never generates/executes code:
+  dynamic cleaning is an LLM *planner* that sees only column names + a few sample values and
+  submits declarative `CleanOp`s (incl. `filter_contains`, literal-only substring) executed by
+  fixed, validated server code. This is how qualitative requirements ("an Intel CPU", "a white
+  case") are enforced **at runtime, through a tool, with zero pack-specific code**.
+- **Domain-agnostic engine** — zero domain knowledge in code: the active *dataset pack*
+  (`GAUSS_DATA_DIR`, default `data/pc-csv`) supplies the catalog, domain name, safety notes,
+  `required_categories` and `primary_cost_column`. Categories are resolved to catalog keys by
+  metadata search (exact → synonym → fuzzy) before data loading.
+- **Self-completing modelization** — the pack's required set is injected into stage 1, and
+  evaluator feedback names missing categories explicitly: the agent defines the decision
+  variables itself and never asks the user to enumerate components.
+- **Catalog-grounded judge** — the intent-fidelity judge sees the available columns and cannot
+  demand data that does not exist (best-available proxies are accepted).
+- **Cost-bounded LLM surface** — thinking budgets capped per call (512/1024), compact context
+  (lean catalog per stage, compact prior-JSON, stripped tool returns), at most one
+  `optimize_request` call per user message. ~1-2¢ per happy-path conversation.
+- **Remaining gap (1)**: the Solver is called in-process — A2A HTTP export pending
+  (`a2a_app=None`); the request/response contract is identical in both modes.
 
 ```mermaid
 ---
@@ -26,12 +34,12 @@ config:
   layout: elk
 ---
 flowchart TB
-    START(("START")) --> A["Input: free-form request (chat / adk web)"]
+    START(("START")) --> A["Input: free-form request (chat / adk web / Cloud Run)"]
 
     subgraph ROOT["Concierge root_agent — ADK LlmAgent (app/agent.py)"]
-        B["root_agent (Gemini)<br>PII-redaction callbacks (before/after model)"]
-        SG["safety_guard sub-agent<br>(AgentTool, refusal guardrails)"]
-        OPB[["optimize_request tool<br>ONE consolidated NL request"]]
+        B["root_agent (Gemini)<br>PII-redaction callbacks<br>max 1 optimize call / user message"]
+        SG["safety_guard sub-agent<br>(AgentTool + pack safety_notes)"]
+        OPB[["optimize_request tool<br>ONE consolidated NL request string<br>returns lean JSON view (no internal schema)"]]
     end
 
     A --> B
@@ -39,21 +47,22 @@ flowchart TB
     SG -- "SAFE / refusal" --> B
     B -- "2 - consolidated request" --> OPB
 
-    subgraph LOOP["Concierge Optimizer Loop — app/concierge.py (max 3 iterations)"]
-        subgraph MODEL["OR Problem Modelization — 4 staged LLM extractions (app/modelization.py)"]
-            C1["1a - DECISION VARIABLES<br>categories + required attributes"] --> C2["1b - DERIVED VARIABLES<br>restricted formula grammar (no code)"]
-            C2 --> D["2 - OBJECTIVES<br>direction + weights + rationale"] --> E["3 - CONSTRAINTS<br>literal / var_ref thresholds (no KB)"]
+    subgraph LOOP["Concierge Optimizer Loop — app/concierge.py (max 3 iterations; one-shot fast mode available)"]
+        subgraph MODEL["OR Problem Modelization — 4 staged LLM extractions, bounded thinking (app/modelization.py)"]
+            C1["1a - DECISION VARIABLES<br>catalog vocabulary + pack required set<br>(injected via DomainContext)"] --> C2["1b - DERIVED VARIABLES<br>restricted formula grammar (no code)"]
+            C2 --> D["2 - OBJECTIVES<br>direction + weights + rationale"] --> E["3 - CONSTRAINTS<br>literal / var_ref thresholds"]
         end
+        NORM["Normalize & repair layer<br>synonym maps, formula rewrite,<br>dangling-ref auto-repair, logged drops"]
         F["Pivot schema (Pydantic)<br>app/schema.py — cross-ref validators"]
-        EVAL{"EVALUATOR (deterministic)<br>completeness: 8 required categories<br>coherence: contradiction scan"}
-        JUDGE["LLM judge (temp 0)<br>intent fidelity"]
-        FB["Structured feedback<br>missing_categories / violations<br>target_stages for REPAIR"]
+        EVAL{"EVALUATOR (deterministic)<br>completeness: pack required_categories<br>coherence: contradiction scan"}
+        JUDGE["LLM judge (temp 0, thinking 512)<br>intent fidelity — grounded in<br>available catalog columns"]
+        FB["Structured feedback<br>NAMES missing categories / violations<br>target_stages for REPAIR"]
         GUARD{"iteration &lt; 3 ?"}
         ASK["NEEDS_CLARIFICATION<br>targeted questions"]
     end
 
     OPB --> C1
-    E --> F --> EVAL
+    E --> NORM --> F --> EVAL
     EVAL -- "det pass (≥ 0.80)" --> JUDGE
     EVAL -- "below 0.80" --> FB
     JUDGE -- "below 0.80" --> FB
@@ -64,13 +73,13 @@ flowchart TB
     JUDGE -- "pass" --> REQ[/"SolverRequest (pivot schema)<br>in-process call — A2A HTTP pending"/]
 
     subgraph SOLVER["Solver Specialist — solver_app/ (deterministic pipeline)"]
-        SA["solve(): validates SolverRequest<br>runs run_solver_pipeline"]
-        RES["Category resolution<br>search metadata: exact → synonym → fuzzy"]
+        SA["solve(): validates SolverRequest"]
+        RES["Category resolution<br>search metadata: exact → synonym → fuzzy ≥0.7<br>schema rewritten, mapping traced"]
         N2["load_data: match categories/columns<br>→ coverage report"]
         G1{"Gate 1: all decision vars<br>satisfied by data?"}
         G2{"Gate 2: missing var defines<br>a constraint / goal?"}
-        N5["Systematic cleaning (pandas)<br>prices, coercion, IQR, memory quirks"]
-        N7["Dynamic cleaning<br>query_data + declarative CleanOps<br>⚠️ implemented, hook NOT wired"]
+        N5["Systematic cleaning (pandas)<br>cost-column rules, coercion, IQR"]
+        N7["DYNAMIC CLEANING (n7 — WIRED)<br>LLM planner sees columns + samples only<br>→ declarative CleanOps (filter_contains...)<br>validated & executed server-side, fail-open"]
         H["PRE-FILTER (pandas)<br>single-component literal rules"]
         I["CP-SAT: assemble valid builds<br>ExactlyOne / budget / var_ref headroom"]
         J{"# objectives ?"}
@@ -84,13 +93,12 @@ flowchart TB
     G1 -- NO --> G2
     G2 -- "NO — strip descriptive attrs" --> N5
     G2 -- "YES → MISSING_DATA" --> FB
-    N5 -.->|"hook=None today"| N7
-    N5 --> H
+    N5 --> N7 --> H
     H -- "required category emptied → INFEASIBLE" --> FB
     H --> I --> J
     J -- "1" --> K --> N13
     J -- "≥2" --> M --> N13
-    N13 -- "YES → SUCCESS" --> OUT["SolverResponse → root_agent<br>markdown component table + total"]
+    N13 -- "YES → SUCCESS" --> OUT["SolverResponse → root_agent<br>markdown table + derived values<br>+ objective report"]
     N13 -- "NO → INFEASIBLE<br>+ relaxation suggestions" --> FB
     OUT --> B
     B --> FIN(("END"))
@@ -100,20 +108,20 @@ flowchart TB
         T2[["load_data"]]
         T3[["clean_systematic"]]
         T4[["query_data (read-only, numexpr)"]]
-        T5[["clean_dynamic (CleanOps)"]]
+        T5[["clean_dynamic (5-op CleanOp vocabulary)"]]
         T6[["prefilter"]]
         T7[["solve_build (CP-SAT + TOPSIS)"]]
     end
 
     subgraph DATA["Data layer — dataset pack (GAUSS_DATA_DIR, default data/pc-csv)"]
-        CSV[("pack CSVs (demo: 25 PC categories)")]
+        CSV[("pack CSVs (demo: 25 PC categories,<br>memory enriched by pack tooling)")]
         META[("metadata.json catalog<br>domain, required_categories,<br>primary_cost_column, safety_notes,<br>columns, synonyms, quirks")]
     end
 
     RES -.-> T1
     N2 -.-> T2
     N5 -.-> T3
-    N7 -.-> T4 & T5
+    N7 -.-> T5
     H -.-> T6
     I -.-> T7
     K -.-> T7
@@ -121,8 +129,8 @@ flowchart TB
     T1 -.-> META
     T2 -.-> CSV & META
 
-    NOTE1["NOTE: KB node G dropped —<br>qualitative intent → objectives,<br>explicit numbers → literal constraints"]
-    NOTE2["NOTE: zero LLM code execution —<br>allowlisted numexpr expressions,<br>closed CleanOp vocabulary"]
+    NOTE1["NOTE: KB node G dropped —<br>qualitative intent → objectives,<br>explicit numbers → literal constraints,<br>keywords → runtime filter_contains"]
+    NOTE2["NOTE: zero LLM code execution —<br>allowlisted numexpr expressions,<br>closed CleanOp vocabulary,<br>literal-only substring matching"]
     E -.- NOTE1
     T5 -.- NOTE2
 
@@ -131,6 +139,7 @@ flowchart TB
     style D fill:#FFCDD2
     style E fill:#FFCDD2
     style A stroke:#757575,fill:#757575,color:#ffffff
+    style NORM fill:#e2e8f0
     style F fill:#4a5568,color:#fff
     style EVAL fill:#dd6b20,color:#fff
     style JUDGE fill:#dd6b20,color:#fff
@@ -149,8 +158,24 @@ flowchart TB
 
 | Marker | Meaning |
 |---|---|
-| Red stages (C1–E) | LLM structured-output extractions (staged, REPAIR-able individually) |
-| Orange (EVAL/JUDGE) | Hybrid evaluator — deterministic gates first, LLM judge gated behind them |
+| Red stages (C1–E) | LLM structured-output extractions (staged, REPAIR-able individually, thinking capped 512/1024) |
+| Grey `NORM` | Deterministic tolerance layer for LLM output shapes (7 repair mechanisms, all regression-tested) |
+| Orange (EVAL/JUDGE) | Hybrid evaluator — deterministic gates first; catalog-grounded LLM judge behind them |
+| Yellow `N7` | The one place LLM-authored *declarations* touch data — closed vocabulary, validated & executed by fixed server code, fail-open (`GAUSS_DYNAMIC_CLEAN=0` to disable) |
 | Blue (CP-SAT) / Green (TOPSIS) | Deterministic optimization core (`app/mcp_server/cpsat.py`, `ranking.py`) |
-| ⚠️ Yellow `N7` | Implemented & security-tested (`safe_ops.py`) but `dynamic_clean_hook=None` in the pipeline |
 | `REQ` in-process note | Contract (`SolverRequest`/`SolverResponse`) is final; HTTP A2A export still pending (`a2a_app=None`) |
+
+## Operational modes (env flags)
+
+| Variable | Effect |
+|---|---|
+| `GAUSS_DATA_DIR` | Selects the active dataset pack (default `data/pc-csv`) |
+| `GAUSS_FAST_MODELIZATION=1` | One-shot extraction + deterministic evaluation (~5× fewer LLM calls) |
+| `GAUSS_DYNAMIC_CLEAN=0` | Disables the n7 dynamic-cleaning planner (default: on, fail-open) |
+| `GAUSS_EVAL_ENABLED=1` | Unlocks the admin-only evaluation tooling (`scripts/run_eval.py`) |
+
+## Deployment
+
+Single Cloud Run service (`gauss`, europe-west1, scale-to-zero, IAM-private), Gemini via
+Vertex (`GOOGLE_GENAI_USE_VERTEXAI=TRUE`), data pack co-located in the container.
+Access for demos: `gcloud run services proxy gauss --region europe-west1 --port 9090`.

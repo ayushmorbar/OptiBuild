@@ -206,6 +206,22 @@ def clean_dynamic(handle: str, ops: list[dict], rationale: str = "") -> DynClean
                     mask &= col_series <= op.max
                 candidate = working[mask]
 
+        elif op.op == "filter_contains":
+            if op.column not in working.columns:
+                error_reason = f"filter_contains failed: column '{op.column}' absent"
+            elif not op.value.strip():
+                error_reason = "filter_contains failed: empty value"
+            else:
+                # Literal substring match, case-insensitive, NEVER a regex.
+                mask = (
+                    working[op.column]
+                    .astype(str)
+                    .str.contains(op.value, case=False, regex=False, na=False)
+                )
+                if op.negate:
+                    mask = ~mask
+                candidate = working[mask]
+
         if error_reason:
             rejected.append(RejectedOp(op_index=i, reason=error_reason))
             continue

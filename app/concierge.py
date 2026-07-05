@@ -74,6 +74,14 @@ def run_concierge(
             ]
 
             reasons = []
+            if feedback.feedback_details.missing_categories:
+                # The agent must self-complete the configuration — name exactly
+                # what stage 1 must add, never bounce this to the user.
+                reasons.append(
+                    "The schema is missing REQUIRED categories that must be added "
+                    "as decision variables (do not ask the user, just include "
+                    "them): " + ", ".join(feedback.feedback_details.missing_categories)
+                )
             if feedback.feedback_details.coherence_violations:
                 reasons.extend(feedback.feedback_details.coherence_violations)
             if feedback.feedback_details.fidelity_violations:

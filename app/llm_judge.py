@@ -34,7 +34,17 @@ def make_llm_judge(model="gemini-flash-latest"):
             schema.model_dump(exclude_defaults=True, exclude_none=True),
             separators=(",", ":"),
         )
-        prompt = build_judge_prompt(user_request, schema_json)
+        # Ground the judge in the actual available columns (filtered to the
+        # schema's categories) so it never demands data that does not exist.
+        try:
+            from app.mcp_server import catalog
+
+            meta = catalog.load_metadata()
+            cats = sorted({dv.category for dv in schema.decision_variables})
+            available = catalog.build_catalog_summary(meta, categories=cats)
+        except Exception:
+            available = ""
+        prompt = build_judge_prompt(user_request, schema_json, available)
         response = client.models.generate_content(
             model=model,
             contents=prompt,
