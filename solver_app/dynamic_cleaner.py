@@ -24,6 +24,11 @@ _SAMPLE_TEXT_COLS = ("name", "color", "type")
 _SAMPLE_VALUES = 5
 
 
+class MapEntry(BaseModel):
+    key: str
+    value: str
+
+
 class CleanOpLite(BaseModel):
     """Flat op model for Gemini structured output (no discriminated unions).
 
@@ -37,15 +42,23 @@ class CleanOpLite(BaseModel):
     value: str | None = None
     negate: bool = False
     expr: str | None = None
-    mapping: dict[str, str] | None = None
+    mapping: list[MapEntry] | None = None
     min: float | None = None
     max: float | None = None
+
+
+class CleanOpsPlan(BaseModel):
+    """Container schema for CleanOps to avoid top-level list additionalProperties compatibility issues."""
+
+    ops: list[CleanOpLite]
 
 
 def _op_to_dict(op: CleanOpLite) -> dict:
     d = op.model_dump(exclude_none=True)
     if op.op != "filter_contains":
         d.pop("negate", None)
+    if "mapping" in d and isinstance(d["mapping"], list):
+        d["mapping"] = {item["key"]: item["value"] for item in d["mapping"]}
     return d
 
 
@@ -92,7 +105,7 @@ def make_dynamic_clean_hook(model: str = "gemini-flash-latest"):
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    response_schema=list[CleanOpLite],
+                    response_schema=CleanOpsPlan,
                     temperature=0.0,
                     thinking_config=types.ThinkingConfig(
                         thinking_budget=DYNAMIC_CLEAN_THINKING_BUDGET
@@ -102,9 +115,13 @@ def make_dynamic_clean_hook(model: str = "gemini-flash-latest"):
 
             ops: list[CleanOpLite] = []
             if getattr(response, "parsed", None):
-                ops = response.parsed
+                ops = response.parsed.ops
             elif getattr(response, "text", None):
-                ops = [CleanOpLite.model_validate(d) for d in json.loads(response.text)]
+                data = json.loads(response.text)
+                if isinstance(data, dict) and "ops" in data:
+                    ops = [CleanOpLite.model_validate(d) for d in data["ops"]]
+                elif isinstance(data, list):
+                    ops = [CleanOpLite.model_validate(d) for d in data]
             if not ops:
                 return
 

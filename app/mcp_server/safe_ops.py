@@ -69,9 +69,16 @@ def validate_expr(expr: str, allowed_columns: set[str]) -> None:
 
 
 def safe_query(df: pd.DataFrame, expr: str, allowed_columns: set[str]) -> pd.DataFrame:
-    """Validate and execute a query expression on a DataFrame using the numexpr engine."""
+    """Validate and execute a query expression on a DataFrame.
+
+    The expression is AST-allowlisted by ``validate_expr`` before execution, so the
+    default pandas engine is safe here. We deliberately do NOT force ``engine="numexpr"``:
+    numexpr is optional and cannot evaluate string/object-column comparisons such as
+    ``brand == "AMD"`` (a core filter for this catalog). The default engine uses numexpr
+    when it is installed and beneficial, and transparently falls back to python otherwise.
+    """
     validate_expr(expr, allowed_columns)
-    return df.query(expr, engine="numexpr")
+    return df.query(expr)
 
 
 def query_data(
