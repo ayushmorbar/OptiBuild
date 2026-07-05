@@ -14,8 +14,15 @@ def run_concierge(
     judge,
     solver_client,
     max_iterations: int = 3,
+    required_categories: list[str] | None = None,
+    domain=None,
 ) -> dict:
-    """Tie modelization, evaluator, and the A2A solver client into a 3-iteration loop."""
+    """Tie modelization, evaluator, and the A2A solver client into a 3-iteration loop.
+
+    `required_categories` is the active pack's completeness policy
+    (metadata.json `required_categories`, optional). `domain` is the pack's
+    DomainContext, used to flavor the modelization prompts.
+    """
     prior_schema = None
     target_stages = None
     repair_feedback = None
@@ -31,6 +38,7 @@ def run_concierge(
                 prior_schema=prior_schema,
                 target_stages=target_stages,
                 repair_feedback=repair_feedback,
+                domain=domain,
             )
         except Exception as e:
             target_stages = [1, 2, 3, 4]
@@ -38,7 +46,9 @@ def run_concierge(
             continue
 
         # 1. Gate check on deterministic dimensions first
-        det = evaluate_deterministic(schema, iteration)
+        det = evaluate_deterministic(
+            schema, iteration, required_categories=required_categories
+        )
 
         # 2. Run LLM judge only if deterministic constraints pass
         if det.scores.completeness >= 0.80 and det.scores.coherence >= 0.80:
@@ -48,6 +58,7 @@ def run_concierge(
                 iteration,
                 intent_fidelity=fidelity,
                 fidelity_violations=fviol,
+                required_categories=required_categories,
             )
         else:
             feedback = det
@@ -118,7 +129,7 @@ def run_concierge(
             questions.append(repair_feedback)
         else:
             questions.append(
-                "Could not satisfy the request with a valid, feasible PC build."
+                "Could not satisfy the request with a valid, feasible configuration."
             )
 
     return {

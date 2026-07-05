@@ -1,5 +1,25 @@
 {
   "version": "1.0",
+  "domain": {
+    "name": "PC build",
+    "description": "Selecting compatible PC components (CPU, GPU, memory, storage, ...) under budget and preference constraints."
+  },
+  "required_categories": [
+    "cpu",
+    "motherboard",
+    "memory",
+    "internal-hard-drive",
+    "power-supply",
+    "case",
+    "cpu-cooler",
+    "video-card"
+  ],
+  "primary_cost_column": "price",
+  "safety_notes": [
+    "overclocking or thermal-limit overrides",
+    "hardware stress testing intended to damage components",
+    "license or DRM circumvention"
+  ],
   "datasets": [
     {
       "file_name": "case-accessory.csv",

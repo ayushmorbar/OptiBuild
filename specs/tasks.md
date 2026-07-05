@@ -214,6 +214,40 @@ schema that passes the evaluator ≤3 iterations and returns a presented build e
 
 ---
 
+## Phase 6b — Domain-Agnostic Refactor (owner decision 2026-07-05) — DONE
+
+> All domain knowledge moved from code into the dataset pack (`data/<pack>/` = CSVs +
+> `metadata.json`); pack selected via `GAUSS_DATA_DIR` (default `data/pc-csv`).
+
+- [x] **6b.1 Pack layer**: `app/mcp_server/pack.py` (lazy `GAUSS_DATA_DIR` resolution); no
+      hardcoded data paths in `catalog.py`/`concierge_runner.py`; `gen_metadata.py --data-dir`
+      preserving top-level pack fields.
+- [x] **6b.2 Metadata extension**: optional top-level fields `domain`, `required_categories`,
+      `primary_cost_column`, `safety_notes`; PC pack declares all four; `DomainContext` model.
+- [x] **6b.3 Category resolution**: `catalog.resolve_schema_categories` (exact → synonym →
+      fuzzy ≥ 0.7) rewrites the schema to catalog keys in `run_solver_pipeline`; mapping in
+      `trace.category_resolution`; unresolved → Gate 1 `MISSING_DATA`. Enriched catalog summary
+      (descriptions + synonyms + typed columns).
+- [x] **6b.4 Cost column generic**: implicit requirement, CP-SAT row-cap sort (with objective /
+      positional fallbacks) and cleaning rules all driven by `primary_cost_column` — zero
+      `"price"` in engine code.
+- [x] **6b.5 Evaluator**: `required_categories` parameter from pack metadata (hardcoded
+      8-category set removed); without it completeness = term resolvability.
+- [x] **6b.6 Prompts/agents genericized**: stage1-4 + oneshot builders take `DomainContext`;
+      generic GUARDRAILS + `build_guardrails(domain)` with pack `safety_notes`;
+      `concierge_agent.txt`/`safety_guard.txt` rewritten generic; tool renamed
+      `optimize_pc_build` → `optimize_request`.
+- [x] **6b.7 Legacy deleted**: `app/tools.py`, `app/data/components.json`,
+      `app/utils/compatibility.py`, `tests/integration/test_integration.py`.
+- [x] **6b.8 Agnosticism proof**: `tests/fixtures/toy-pack` (meal plan, cost column `cost`) +
+      `tests/integration/test_toy_pack_pipeline.py` — full pipeline SUCCESS, synonym resolution
+      ("main-dish" → protein), metadata-driven completeness, INFEASIBLE path.
+
+**Done when:** suite green on both packs; no domain vocabulary greps in `app/`/`solver_app/`
+engine code. ✔
+
+---
+
 ## Phase 7 — Eval Suite & Deployment (capstone concepts 4–6)
 
 > **Not started — external dependencies:** eval needs LLM quota (paid Gemini API tier); deployment needs GCP + billing.

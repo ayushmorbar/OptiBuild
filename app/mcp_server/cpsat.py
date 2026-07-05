@@ -1,4 +1,4 @@
-"""CP-SAT solver core for PC build optimization."""
+"""CP-SAT solver core for configuration optimization."""
 
 import re
 import time
@@ -14,8 +14,40 @@ SCALE = 100
 ROW_CAP = 200
 
 
+def _cap_rows(
+    df: pd.DataFrame,
+    category: str,
+    schema: PivotSchema,
+    cost_column: str | None,
+) -> pd.DataFrame:
+    """Cap a category frame to ROW_CAP rows using the best available sort key.
+
+    Priority: the pack's primary cost column (ascending) -> the first objective
+    targeting a numeric attribute of this category (sorted in the objective's
+    favorable direction) -> deterministic positional cap.
+    """
+    if len(df) <= ROW_CAP:
+        return df
+    if cost_column and cost_column in df.columns:
+        return df.sort_values(cost_column).head(ROW_CAP)
+    for obj in schema.objectives:
+        if "." in obj.target_variable:
+            cat, attr = obj.target_variable.split(".", 1)
+            if (
+                cat == category
+                and attr in df.columns
+                and pd.api.types.is_numeric_dtype(df[attr])
+            ):
+                return df.sort_values(attr, ascending=obj.direction == "minimize").head(
+                    ROW_CAP
+                )
+    return df.head(ROW_CAP)
+
+
 def build_and_solve(
-    frames: dict[str, pd.DataFrame], schema: PivotSchema
+    frames: dict[str, pd.DataFrame],
+    schema: PivotSchema,
+    cost_column: str | None = None,
 ) -> SolveReport:
     """Build and solve the CP-SAT optimization model based on the pivot schema."""
     model = cp_model.CpModel()
@@ -43,8 +75,8 @@ def build_and_solve(
                 capped_frames[category] = pd.DataFrame()
                 continue
 
-        # Cap to cheapest ROW_CAP rows by ascending price
-        df_cat = frames[category].sort_values("price").head(ROW_CAP)
+        # Cap to ROW_CAP rows (sorted by the pack's cost column when available)
+        df_cat = _cap_rows(frames[category], category, schema, cost_column)
         capped_frames[category] = df_cat
 
         x[category] = {}
@@ -343,8 +375,10 @@ def build_and_solve(
         )
 
 
-def solve_build(handle: str, pivot_schema: dict) -> SolveReport:
+def solve_build(
+    handle: str, pivot_schema: dict, cost_column: str | None = None
+) -> SolveReport:
     """Load pre-filtered data and solve the optimization model using CP-SAT."""
     frames = store.get(handle)
     schema = PivotSchema.model_validate(pivot_schema)
-    return build_and_solve(frames, schema)
+    return build_and_solve(frames, schema, cost_column=cost_column)

@@ -16,6 +16,24 @@ def test_metadata_assets_and_integrity():
     datasets = metadata.get("datasets", [])
     assert len(datasets) == 25, f"Expected 25 datasets, found {len(datasets)}"
 
+    # Pack-level domain fields (all domain knowledge lives here, not in code)
+    assert metadata.get("primary_cost_column") == "price"
+    domain = metadata.get("domain", {})
+    assert domain.get("name"), "domain.name must be declared for the PC pack"
+    required_categories = metadata.get("required_categories", [])
+    assert set(required_categories) == {
+        "cpu",
+        "motherboard",
+        "memory",
+        "internal-hard-drive",
+        "power-supply",
+        "case",
+        "cpu-cooler",
+        "video-card",
+    }
+    assert isinstance(metadata.get("safety_notes"), list) and metadata["safety_notes"]
+
+    cost_col = metadata["primary_cost_column"]
     category_keys = set()
 
     for ds in datasets:
@@ -70,8 +88,11 @@ def test_metadata_assets_and_integrity():
                 f"Required flag missing for column '{col_name}' in {category_key}"
             )
 
-            # Check that name and price are always required: true
-            if col_name in ("name", "price"):
+            # Check that name and the pack's cost column are always required: true
+            if col_name in ("name", cost_col):
                 assert col_meta["required"] is True, (
                     f"'{col_name}' must be required in {category_key}"
                 )
+
+    # 7. required_categories must all exist in the catalog
+    assert set(required_categories) <= category_keys

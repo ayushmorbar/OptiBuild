@@ -3,6 +3,18 @@
 from app.evaluator import check_coherence, evaluate_deterministic
 from app.schema import PivotSchema
 
+# The PC pack's completeness policy (mirrors data/pc-csv/metadata.json required_categories)
+PC_REQUIRED_CATEGORIES = [
+    "cpu",
+    "motherboard",
+    "memory",
+    "internal-hard-drive",
+    "power-supply",
+    "case",
+    "cpu-cooler",
+    "video-card",
+]
+
 
 def make_clean_schema_data():
     return {
@@ -130,7 +142,10 @@ def test_evaluator_completeness_missing_categories():
         "constraints": [],
     }
     schema = PivotSchema.model_validate(data)
-    feedback = evaluate_deterministic(schema, iteration=1)
+    # Required categories come from the pack metadata (PC pack declares 8)
+    feedback = evaluate_deterministic(
+        schema, iteration=1, required_categories=PC_REQUIRED_CATEGORIES
+    )
 
     assert feedback.passed is False
     assert feedback.scores.completeness == 0.25  # 2 present out of 8 required
@@ -144,6 +159,34 @@ def test_evaluator_completeness_missing_categories():
     ]
     # Check that stage 1 is in target stages since completeness is less than 0.80
     assert 1 in feedback.feedback_details.target_stages
+
+
+def test_evaluator_completeness_without_required_categories():
+    """Without a pack-declared required set, completeness is resolvability only."""
+    data = {
+        "user_intent": "Pick the cheapest main dish",
+        "decision_variables": [
+            {
+                "category": "protein",
+                "required_attributes": [{"name": "cost", "data_type": "float"}],
+                "optional": False,
+            },
+        ],
+        "derived_variables": [],
+        "objectives": [
+            {
+                "target_variable": "protein.cost",
+                "direction": "minimize",
+            }
+        ],
+        "constraints": [],
+    }
+    schema = PivotSchema.model_validate(data)
+    feedback = evaluate_deterministic(schema, iteration=1)
+
+    assert feedback.scores.completeness == 1.0
+    assert feedback.feedback_details.missing_categories == []
+    assert feedback.passed is True
 
 
 def test_evaluator_contradictory_bounds():

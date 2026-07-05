@@ -108,6 +108,11 @@ def prefilter(handle: str, constraints: list[dict]) -> dict:
 
 @mcp.tool()
 def solve_build(handle: str, pivot_schema: dict) -> dict:
-    """Solve the PC build optimization problem using CP-SAT."""
-    report = cpsat.solve_build(handle=handle, pivot_schema=pivot_schema)
+    """Solve the configuration optimization problem using CP-SAT."""
+    metadata = catalog.load_metadata()
+    report = cpsat.solve_build(
+        handle=handle,
+        pivot_schema=pivot_schema,
+        cost_column=metadata.get("primary_cost_column"),
+    )
     return _json_safe(report.model_dump())

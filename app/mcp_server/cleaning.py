@@ -6,23 +6,23 @@ from app.mcp_server.store import store
 from app.schema import CleanCategoryReport, CleanReport
 
 
-def drop_invalid_prices(
-    df: pd.DataFrame, category: str, ds_meta: dict
+def drop_invalid_cost(
+    df: pd.DataFrame, category: str, ds_meta: dict, cost_col: str | None
 ) -> tuple[pd.DataFrame, list[str], int]:
-    """Drop rows where price is null or non-positive."""
-    if "price" not in df.columns:
+    """Drop rows where the pack's primary cost column is null or non-positive."""
+    if cost_col is None or cost_col not in df.columns:
         return df, [], 0
     initial_rows = len(df)
-    df_clean = df[df["price"].notna() & (df["price"] > 0)]
+    df_clean = df[df[cost_col].notna() & (df[cost_col] > 0)]
     dropped = initial_rows - len(df_clean)
     fixes = []
     if dropped > 0:
-        fixes.append(f"dropped {dropped} rows: null/<=0 price")
+        fixes.append(f"dropped {dropped} rows: null/<=0 {cost_col}")
     return df_clean, fixes, dropped
 
 
 def coerce_numeric_columns(
-    df: pd.DataFrame, category: str, ds_meta: dict
+    df: pd.DataFrame, category: str, ds_meta: dict, cost_col: str | None
 ) -> tuple[pd.DataFrame, list[str], int]:
     """Coerce declared numeric columns and drop rows with invalid values."""
     initial_rows = len(df)
@@ -48,33 +48,33 @@ def coerce_numeric_columns(
     return df_clean, fixes, dropped
 
 
-def remove_price_outliers(
-    df: pd.DataFrame, category: str, ds_meta: dict
+def remove_cost_outliers(
+    df: pd.DataFrame, category: str, ds_meta: dict, cost_col: str | None
 ) -> tuple[pd.DataFrame, list[str], int]:
-    """Remove price outliers using the IQR rule."""
-    if "price" not in df.columns or len(df) == 0:
+    """Remove primary-cost-column outliers using the IQR rule."""
+    if cost_col is None or cost_col not in df.columns or len(df) == 0:
         return df, [], 0
     initial_rows = len(df)
 
-    q1 = df["price"].quantile(0.25)
-    q3 = df["price"].quantile(0.75)
+    q1 = df[cost_col].quantile(0.25)
+    q3 = df[cost_col].quantile(0.75)
     iqr = q3 - q1
     lower_bound = q1 - 1.5 * iqr
     upper_bound = q3 + 1.5 * iqr
 
-    df_clean = df[(df["price"] >= lower_bound) & (df["price"] <= upper_bound)]
+    df_clean = df[(df[cost_col] >= lower_bound) & (df[cost_col] <= upper_bound)]
     dropped = initial_rows - len(df_clean)
 
     fixes = []
     if dropped > 0:
-        fixes.append(f"dropped {dropped} price outliers (IQR)")
+        fixes.append(f"dropped {dropped} {cost_col} outliers (IQR)")
     return df_clean, fixes, dropped
 
 
 SYSTEMATIC_RULES = [
-    drop_invalid_prices,
+    drop_invalid_cost,
     coerce_numeric_columns,
-    remove_price_outliers,
+    remove_cost_outliers,
 ]
 
 
@@ -83,6 +83,7 @@ def clean_systematic(handle: str, metadata: dict) -> CleanReport:
     frames = store.get(handle)
     cleaned_frames = {}
     per_category_report = {}
+    cost_col = metadata.get("primary_cost_column")
 
     for category, df in frames.items():
         ds_meta = {}
@@ -96,7 +97,9 @@ def clean_systematic(handle: str, metadata: dict) -> CleanReport:
         total_dropped = 0
 
         for rule in SYSTEMATIC_RULES:
-            current_df, rule_fixes, rule_dropped = rule(current_df, category, ds_meta)
+            current_df, rule_fixes, rule_dropped = rule(
+                current_df, category, ds_meta, cost_col
+            )
             fixes.extend(rule_fixes)
             total_dropped += rule_dropped
 

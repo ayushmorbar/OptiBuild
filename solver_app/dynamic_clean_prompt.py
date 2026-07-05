@@ -14,7 +14,7 @@ def build_dynamic_clean_prompt(
     available_data_str = "\n".join(data_lines)
 
     prompt = f"""[ROLE]
-You are a planning assistant that proposes declarative data cleaning operations (CleanOps) for a PC-build optimization pipeline.
+You are a planning assistant that proposes declarative data cleaning operations (CleanOps) for a configuration-optimization pipeline.
 
 [METHOD]
 Before planning or proposing any cleaning operations, you MUST first inspect the loaded datasets using the read-only 'query_data' tool. Run queries to check 'sample', 'describe', or 'value_counts' on constraint-relevant columns to understand the data shape, distributions, and presence of anomalies.

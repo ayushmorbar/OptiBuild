@@ -76,6 +76,22 @@ def load_prompt(filename: str) -> str:
         return f.read().strip()
 
 
+def build_safety_guard_instruction() -> str:
+    """Generic safety prompt, extended with the active pack's domain safety notes."""
+    instruction = load_prompt("safety_guard.txt")
+    try:
+        from app.mcp_server import catalog
+
+        domain = catalog.get_domain_context(catalog.load_metadata())
+        if domain.safety_notes:
+            notes = "\n".join(f"- {note}" for note in domain.safety_notes)
+            instruction += f"\nAdditionally refuse requests involving:\n{notes}\n"
+    except Exception:
+        # Missing/invalid pack must never break agent import; generic prompt suffices.
+        pass
+    return instruction
+
+
 # 1. Safety Guard Agent (Sub-Agent for Multi-Agent System)
 safety_guard = Agent(
     name="safety_guard",
@@ -83,7 +99,7 @@ safety_guard = Agent(
         model="gemini-flash-latest",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
-    instruction=load_prompt("safety_guard.txt"),
+    instruction=build_safety_guard_instruction(),
     before_model_callback=before_model_redact_pii,
     after_model_callback=after_model_redact_pii,
 )
@@ -91,12 +107,12 @@ safety_guard = Agent(
 safety_guard_tool = AgentTool(agent=safety_guard)
 
 
-# 2. Optimize PC Build Python Function (Exposed as a Tool)
-def optimize_pc_build(user_request: str) -> dict:
-    """Finds optimal, fully compatible PC configurations under a given budget and constraints.
+# 2. Optimization Python Function (Exposed as a Tool)
+def optimize_request(user_request: str) -> dict:
+    """Finds the optimal selection from the active dataset pack satisfying the user's goals and constraints.
 
     Args:
-        user_request: A consolidated natural-language request containing budget, purpose, and constraints.
+        user_request: A consolidated natural-language request containing goals, limits, and preferences.
     """
     import app.concierge_runner
 
@@ -127,7 +143,7 @@ root_agent = Agent(
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
     instruction=load_prompt("concierge_agent.txt"),
-    tools=[optimize_pc_build, safety_guard_tool],
+    tools=[optimize_request, safety_guard_tool],
     before_model_callback=before_model_redact_pii,
     after_model_callback=after_model_redact_pii,
 )

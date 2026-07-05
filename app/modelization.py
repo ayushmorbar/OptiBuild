@@ -66,10 +66,12 @@ def run_modelization(
     prior_schema: PivotSchema | None = None,
     target_stages: list[int] | None = None,
     repair_feedback: str | None = None,
+    domain=None,
 ) -> PivotSchema:
     """Run the 4 extraction stages in order and assemble a PivotSchema.
 
     - extractor: callable(stage: int, prompt: str) -> list[dict]
+    - domain: optional DomainContext from the active pack's metadata (prompt flavoring)
     """
     stages_to_run = target_stages or [1, 2, 3, 4]
 
@@ -91,20 +93,26 @@ def run_modelization(
             continue
 
         if stage == 1:
-            prompt = build_stage1_prompt(user_request, catalog_summary, repair_feedback)
+            prompt = build_stage1_prompt(
+                user_request, catalog_summary, repair_feedback, domain=domain
+            )
         elif stage == 2:
             prior_dict = {
                 "decision_variables": [dv.model_dump() for dv in outputs.get(1, [])]
             }
             prior_json = json.dumps(prior_dict, indent=2)
-            prompt = build_stage2_prompt(user_request, prior_json, repair_feedback)
+            prompt = build_stage2_prompt(
+                user_request, prior_json, repair_feedback, domain=domain
+            )
         elif stage == 3:
             prior_dict = {
                 "decision_variables": [dv.model_dump() for dv in outputs.get(1, [])],
                 "derived_variables": [dv.model_dump() for dv in outputs.get(2, [])],
             }
             prior_json = json.dumps(prior_dict, indent=2)
-            prompt = build_stage3_prompt(user_request, prior_json, repair_feedback)
+            prompt = build_stage3_prompt(
+                user_request, prior_json, repair_feedback, domain=domain
+            )
         else:
             # stage 4
             prior_dict = {
@@ -114,7 +122,11 @@ def run_modelization(
             }
             prior_json = json.dumps(prior_dict, indent=2)
             prompt = build_stage4_prompt(
-                user_request, prior_json, catalog_summary, repair_feedback
+                user_request,
+                prior_json,
+                catalog_summary,
+                repair_feedback,
+                domain=domain,
             )
 
         raw = extractor(stage, prompt)
@@ -137,12 +149,12 @@ def run_modelization(
 
 
 def build_schema_oneshot(
-    user_request: str, catalog_summary: str, oneshot_extractor
+    user_request: str, catalog_summary: str, oneshot_extractor, domain=None
 ) -> PivotSchema:
     """Extract and compile the entire PivotSchema in one shot."""
     from app.prompt_contracts import build_oneshot_prompt
 
-    prompt = build_oneshot_prompt(user_request, catalog_summary)
+    prompt = build_oneshot_prompt(user_request, catalog_summary, domain=domain)
     raw_schema = oneshot_extractor(prompt)
 
     raw_dvs = raw_schema.get("decision_variables", [])
