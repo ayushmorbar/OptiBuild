@@ -1,12 +1,12 @@
-# Kaggle Capstone Project Spec: 5dgai Optimization Agent
+# Kaggle Capstone Project Spec: OptiBuild
 
-This specification documents how the **5dgai - Optimisation Agent** implements and demonstrates the key concepts required for the **AI Agents: Intensive Vibe Coding Capstone Project** evaluation.
+This specification documents how the **OptiBuild** agent implements and demonstrates the key concepts required for the **AI Agents: Intensive Vibe Coding Capstone Project** evaluation.
 
 ## Capstone Requirements & Demonstration Strategy
 
 To satisfy the capstone project evaluation, we demonstrate at least **three (3) key concepts** across codebase implementation and video demonstration:
 
-| Key Concept | Required Medium | Fulfilling Strategy in 5dgai Agent |
+| Key Concept | Required Medium | Fulfilling Strategy in OptiBuild |
 | :--- | :--- | :--- |
 | **1. Agent / Multi-agent system (ADK)** | **Code** | **Multi-Agent Architecture**: We will split the system into a **Concierge Agent** (user-facing router/clarification assistant) and a **Solver Specialist Agent** (sub-agent focused strictly on solving component combinations) using the ADK A2A (Agent-to-Agent) protocol. |
 | **2. MCP Server** | **Code** | **Decoupled Tool Hosting**: The components database and compatibility checkers are hosted in a separate process as a standard Model Context Protocol (MCP) Server. The `SolverSpecialistAgent` connects to it dynamically over Stdio using `McpToolset`. |

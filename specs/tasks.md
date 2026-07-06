@@ -1,6 +1,6 @@
-# 5dgai Optimisation Agent — Implementation Plan (v2)
+# OptiBuild — Implementation Plan
 
-Derived from `specs/architecture.md` (the v2 architecture; authoritative — §refs below point into it).
+Derived from `specs/architecture.md` (authoritative — §refs below point into it).
 Phases are dependency-ordered: contracts → data assets → MCP server → Solver agent →
 Concierge agent → integration/security → eval & deploy. Each phase ends with a **Done when**
 gate — don't start the next phase until it holds.

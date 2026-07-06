@@ -8,12 +8,12 @@ Guidance for AI coding agents (Antigravity / Gemini) working in this repository.
 user's request, hands it to a Solver Specialist over **A2A**, with all deterministic compute
 (pandas, OR-Tools CP-SAT, TOPSIS) behind a **FastMCP** server.
 
-- **Authoritative design:** `specs/architecture.md` (v2). Read it before implementing anything.
+- **Authoritative design:** `specs/architecture.md`. Read it before implementing anything.
 - **Implementation plan & checklist:** `specs/tasks.md`.
 - **Problem statement:** `specs/problem_definition.md`.
 
 > The current code under `app/` is an earlier prototype (a brute-force `itertools` solver over a
-> small hand-authored JSON dataset). It is being rebuilt to the v2 architecture. When in doubt,
+> small hand-authored JSON dataset). It is being rebuilt to the target architecture. When in doubt,
 > follow `specs/architecture.md`, **not** the existing solver.
 
 ## Standing rules (from `specs/architecture.md` §8 — apply to every change)

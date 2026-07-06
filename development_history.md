@@ -1,6 +1,6 @@
-# 5dgai Optimization Agent: Step-by-Step Development History
+# OptiBuild: Step-by-Step Development History
 
-This document chronicles the design, implementation, evaluation, and optimization phases of the 5dgai PC Builder Optimization Agent.
+This document chronicles the design, implementation, evaluation, and optimization phases of the OptiBuild PC Builder Optimization Agent.
 
 ---
 

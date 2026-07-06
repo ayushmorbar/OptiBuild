@@ -1,4 +1,4 @@
-# 5dgai — Optimisation Agent: Technical Architecture (v2)
+# OptiBuild: Technical Architecture
 
 Source of truth: `specs/workflow.md` (Mermaid). The Kaggle capstone spec is reconciled to it
 (§3, §10). Stack: Google ADK (A2A), FastMCP/Stdio, agents-cli, Python + uv, Pydantic,

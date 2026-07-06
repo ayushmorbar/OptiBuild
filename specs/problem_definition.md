@@ -1,6 +1,6 @@
-# 5dgai - Optimisation Agent: Technical Architecture Specification
+# OptiBuild: Technical Architecture Specification
 
-This document defines the complete technical architecture for the **5dgai - Optimisation Agent**.
+This document defines the complete technical architecture for the **OptiBuild** agent.
 
 ---
 

@@ -139,7 +139,7 @@ default). Long demos are fine; a pruning/summarization callback is the next leve
 | M | A2A HTTP endpoint pending (`a2a_app=None` fallback) | Contract identical in-process; export exists |
 | L | Model alias `gemini-flash-latest` (behavior/pricing may drift) | Pin an explicit model version before the video |
 | L | CP-SAT aggregates: only `sum` compiled (min/max/avg/count skipped) | Grammar accepts them; documented deferral |
-| L | Socket compatibility (cpu↔motherboard) out of V1 | No socket column in data; documented since v2 spec |
+| L | Socket compatibility (cpu↔motherboard) out of scope | No socket column in data; documented in spec |
 | L | `list-apps` shows `data`/`solver_app` as selectable "apps" | Cosmetic (ADK dir scan); service is private |
 | L | Budget sanitization at intake unwired | `sanitize_budget` exists; tracked in tasks.md 5.4 |
 

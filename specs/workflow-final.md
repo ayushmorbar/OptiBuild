@@ -1,4 +1,4 @@
-# 5dgai — Optimisation Agent: Final System Workflow
+# OptiBuild: Final System Workflow
 
 As-built successor of `specs/workflow.md` (the initial modelization). Reflects the real,
 verified structure as of **2026-07-05** — deployed on Cloud Run (revision `gauss-00008`),
