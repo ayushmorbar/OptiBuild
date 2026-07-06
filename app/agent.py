@@ -114,10 +114,22 @@ def _llm_view(result: dict) -> dict:
     of tokens the model never needs, resent with every subsequent turn. Keep only
     what the presentation layer uses.
     """
+    schema_dump = None
+    if result.get("schema"):
+        if hasattr(result["schema"], "model_dump"):
+            schema_dump = result["schema"].model_dump(
+                exclude_defaults=True, exclude_none=True
+            )
+        else:
+            schema_dump = result["schema"]
+
     view = {
         "status": result.get("status"),
         "iterations": result.get("iterations"),
     }
+    if schema_dump:
+        view["generated_schema"] = schema_dump
+
     if result.get("questions"):
         view["questions"] = result["questions"]
 
@@ -138,6 +150,8 @@ def _llm_view(result: dict) -> dict:
             else None,
             "feedback": resp.get("feedback"),
             "category_resolution": (resp.get("trace") or {}).get("category_resolution"),
+            "dataframe_queries": (resp.get("trace") or {}).get("dataframe_queries"),
+            "generated_schema": (resp.get("trace") or {}).get("generated_schema"),
         }
     return view
 
@@ -150,9 +164,34 @@ def optimize_request(user_request: str) -> dict:
         user_request: A consolidated natural-language request containing goals, limits, and preferences.
     """
     import app.concierge_runner
+    import pprint
 
     try:
-        return _llm_view(app.concierge_runner.run(user_request))
+        result = app.concierge_runner.run(user_request)
+
+        # Explicit print to stdout for visibility in the playground terminal logs
+        print("\n" + "=" * 50)
+        print("GAUSS INTERMEDIARY SCHEMA & QUERIES TRACE")
+        print("=" * 50)
+        if result.get("schema"):
+            print("\n--- GENERATED OPTIMIZATION SCHEMA ---")
+            if hasattr(result["schema"], "model_dump"):
+                pprint.pprint(
+                    result["schema"].model_dump(
+                        exclude_defaults=True, exclude_none=True
+                    )
+                )
+            else:
+                pprint.pprint(result["schema"])
+
+        resp = result.get("solver_response")
+        if resp is not None:
+            trace = getattr(resp, "trace", {}) or {}
+            print("\n--- DATAFRAME QUERIES (PREFILTERS & DYNAMIC CLEANING) ---")
+            pprint.pprint(trace.get("dataframe_queries"))
+        print("=" * 50 + "\n")
+
+        return _llm_view(result)
     except Exception as e:
         return {"status": "ERROR", "error": str(e)}
 

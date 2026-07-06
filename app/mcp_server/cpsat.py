@@ -151,6 +151,72 @@ def build_and_solve(
         if constraint.stage != "solver" or not constraint.is_hard:
             continue
 
+        # Check if this is a general-purpose categorical string comparison constraint
+        is_categorical = False
+        cat_left, col_left = None, None
+        cat_right, col_right = None, None
+
+        if (
+            "." in constraint.left_side
+            and constraint.right_side.kind == "var_ref"
+            and "." in constraint.right_side.ref
+        ):
+            cat_left, col_left = constraint.left_side.split(".", 1)
+            cat_right, col_right = constraint.right_side.ref.split(".", 1)
+            if cat_left in capped_frames and cat_right in capped_frames:
+                df_left = capped_frames[cat_left]
+                df_right = capped_frames[cat_right]
+                if col_left in df_left.columns and col_right in df_right.columns:
+                    if not pd.api.types.is_numeric_dtype(
+                        df_left[col_left]
+                    ) or not pd.api.types.is_numeric_dtype(df_right[col_right]):
+                        is_categorical = True
+
+        if is_categorical:
+            op = constraint.operator
+            df_left = capped_frames[cat_left]
+            df_right = capped_frames[cat_right]
+            for idx_l, row_l in df_left.iterrows():
+                val_l = row_l[col_left]
+                for idx_r, row_r in df_right.iterrows():
+                    val_r = row_r[col_right]
+
+                    s_l = str(val_l).strip().lower() if not pd.isna(val_l) else ""
+                    s_r = str(val_r).strip().lower() if not pd.isna(val_r) else ""
+
+                    is_match = False
+                    if s_l and s_r:
+
+                        def normalize(s: str) -> str:
+                            s = s.replace("micro atx", "microatx").replace(
+                                "mini itx", "miniitx"
+                            )
+                            s = s.replace("micro-atx", "microatx").replace(
+                                "mini-itx", "miniitx"
+                            )
+                            return s
+
+                        s_l_norm = normalize(s_l)
+                        s_r_norm = normalize(s_r)
+
+                        # Split into word tokens by spaces, hyphens, or slashes
+                        tokens_l = [t for t in re.split(r"[\s\-/_]+", s_l_norm) if t]
+                        tokens_r = [t for t in re.split(r"[\s\-/_]+", s_r_norm) if t]
+
+                        if tokens_l and tokens_r:
+                            if len(tokens_l) <= len(tokens_r):
+                                is_match = all(t in tokens_r for t in tokens_l)
+                            else:
+                                is_match = all(t in tokens_l for t in tokens_r)
+
+                    if op == "==":
+                        if not is_match:
+                            model.Add(x[cat_left][idx_l] + x[cat_right][idx_r] <= 1)
+                    elif op == "!=":
+                        if is_match:
+                            model.Add(x[cat_left][idx_l] + x[cat_right][idx_r] <= 1)
+            continue
+
         # Resolve left_expr
         left_side = constraint.left_side
         left_expr = None

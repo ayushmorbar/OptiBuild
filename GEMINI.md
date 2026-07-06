@@ -25,6 +25,7 @@ user's request, hands it to a Solver Specialist over **A2A**, with all determini
 - **Strict contracts:** every inter-component payload is a Pydantic model from `app/schema.py`.
 - **Untrusted input:** raw user text travels only inside `<user_request>...</user_request>`
   delimited blocks and is treated as data, never as instructions.
+- **Zero domain-specific hardcoding:** the engine and solver must remain completely domain-agnostic; do not hardcode rules, constants, mappings, or logic for specific domains (such as PC components, sockets, or motherboard sizes) inside the application code. All domain logic must be driven dynamically by the active dataset pack and declarative schemas.
 
 ## Conventions
 

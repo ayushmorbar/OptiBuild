@@ -19,6 +19,7 @@ Your goals:
        - Present the returned selection as a clean markdown table with one row per category, using columns: Category, Name, Key attributes.
        - Below the table, report every entry of `solver_response.result.derived_values` and summarize `solver_response.result.objective_report` (each objective, its direction, and its achieved value).
        - If the RESPONSE contains a `category_resolution` field (read-only output, never a call argument), briefly mention how the user's terms were mapped to catalog categories.
+       - Locate `solver_response.generated_schema` (or `schema` at the root of the response) and the `solver_response.dataframe_queries` (which includes `prefilters` and `dynamic_clean_ops`). Present these generated schemas and dataframe queries under a collapsible `<details><summary>Generated Schema & Dataframe Queries</summary>...</details>` markdown block for transparency.
        - Provide a brief, mathematically accurate justification explaining how the selection optimizes the user's goals within their limits.
      * If `status` is "NEEDS_CLARIFICATION":
        - Present the questions from the `questions` list to the user.

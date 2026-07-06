@@ -399,3 +399,75 @@ def test_cpsat_solve_without_cost_column_end_to_end():
     report = build_and_solve(frames, schema, cost_column="cost")
     assert report.status == "OPTIMAL"
     assert report.selections["item"]["name"] == "b"
+
+
+def test_cpsat_categorical_string_equality():
+    """Verify that CP-SAT solver dynamically compiles domain-agnostic categorical string equality constraints."""
+    # Setup data
+    cat_a_df = pd.DataFrame(
+        {
+            "name": ["item_a1", "item_a2"],
+            "cost": [10.0, 20.0],
+            "style": ["Modern classic", "Vintage Retro"],
+        }
+    )
+    cat_b_df = pd.DataFrame(
+        {
+            "name": ["item_b1", "item_b2"],
+            "cost": [10.0, 20.0],
+            "theme": ["Retro", "Classic"],
+        }
+    )
+
+    frames = {"a": cat_a_df, "b": cat_b_df}
+
+    schema_dict = {
+        "schema_version": "1.0",
+        "user_intent": "Build cheapest compatible items",
+        "decision_variables": [
+            {
+                "category": "a",
+                "required_attributes": [
+                    {"name": "cost", "data_type": "float"},
+                    {"name": "style", "data_type": "str"},
+                ],
+            },
+            {
+                "category": "b",
+                "required_attributes": [
+                    {"name": "cost", "data_type": "float"},
+                    {"name": "theme", "data_type": "str"},
+                ],
+            },
+        ],
+        "derived_variables": [
+            {
+                "name": "total_cost",
+                "formula": "sum(a.cost, b.cost)",
+                "dependencies": ["a", "b"],
+            }
+        ],
+        "objectives": [{"target_variable": "total_cost", "direction": "minimize"}],
+        "constraints": [
+            {
+                "name": "style_theme_compat",
+                "left_side": "a.style",
+                "operator": "==",
+                "right_side": {"kind": "var_ref", "ref": "b.theme"},
+                "is_hard": True,
+                "origin": "compatibility",
+            }
+        ],
+    }
+
+    schema = PivotSchema.model_validate(schema_dict)
+    report = build_and_solve(frames, schema, cost_column="cost")
+
+    assert report.status == "OPTIMAL"
+    # Cheapest compatible combo is $30. It should NOT select (item_a1, item_b1) which is $20 but incompatible.
+    assert report.derived_values["total_cost"] == 30.00
+    sel_a = report.selections["a"]["name"]
+    sel_b = report.selections["b"]["name"]
+    assert (sel_a == "item_a1" and sel_b == "item_b2") or (
+        sel_a == "item_a2" and sel_b == "item_b1"
+    )
