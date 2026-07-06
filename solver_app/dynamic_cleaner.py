@@ -66,11 +66,11 @@ def make_dynamic_clean_hook(model: str = "gemini-flash-latest"):
     """Return a pipeline hook(handle, schema, original_prompt) planning CleanOps via LLM."""
     client = None
 
-    def hook(handle: str, schema, original_prompt: str = "") -> None:
+    def hook(handle: str, schema, original_prompt: str = "") -> list[dict]:
         nonlocal client
         user_request = original_prompt or getattr(schema, "user_intent", "")
         if not user_request:
-            return
+            return []
 
         try:
             frames = store.get(handle)
@@ -123,7 +123,7 @@ def make_dynamic_clean_hook(model: str = "gemini-flash-latest"):
                 elif isinstance(data, list):
                     ops = [CleanOpLite.model_validate(d) for d in data]
             if not ops:
-                return
+                return []
 
             report = safe_ops.clean_dynamic(
                 handle,
@@ -137,8 +137,14 @@ def make_dynamic_clean_hook(model: str = "gemini-flash-latest"):
             )
             for rej in report.rejected:
                 logger.warning("dynamic op %d rejected: %s", rej.op_index, rej.reason)
+
+            rejected_indices = {rej.op_index for rej in report.rejected}
+            return [
+                _op_to_dict(o) for i, o in enumerate(ops) if i not in rejected_indices
+            ]
         except Exception as e:
             # Enhancement, never a dependency: fail open.
             logger.warning("dynamic cleaning skipped: %s", e)
+            return []
 
     return hook

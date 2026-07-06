@@ -64,13 +64,68 @@ def run_solver_pipeline(
 
     # 4. Injectable dynamic cleaning hook (workflow n7: LLM queries the data
     # shape and submits declarative CleanOps — validated server-side)
+    applied_clean_ops = []
     if dynamic_clean_hook is not None:
-        dynamic_clean_hook(handle, schema, request.context.original_prompt)
+        applied_clean_ops = (
+            dynamic_clean_hook(handle, schema, request.context.original_prompt) or []
+        )
 
     # 5. Prefilter
     prefilter_report = prefilter_mod.prefilter(
         handle, [c.model_dump() for c in schema.constraints]
     )
+
+    # Extract dataframe queries (prefilters + dynamic clean ops)
+    def get_clean_op_query_string(op: dict) -> str:
+        op_name = op.get("op")
+        cat = op.get("category")
+        col = op.get("column")
+        if op_name == "filter_contains":
+            neg = "~" if op.get("negate") else ""
+            return f"df_{cat} = df_{cat}[{neg}df_{cat}['{col}'].str.contains({op.get('value')!r}, case=False, regex=False, na=False)]"
+        elif op_name == "filter_rows":
+            return f"df_{cat} = df_{cat}.query({op.get('expr')!r})"
+        elif op_name == "drop_nulls":
+            cols = op.get("columns", [])
+            return f"df_{cat} = df_{cat}.dropna(subset={cols})"
+        elif op_name == "map_values":
+            return f"df_{cat}['{col}'] = df_{cat}['{col}'].replace({op.get('mapping')})"
+        elif op_name == "clip_range":
+            limits = []
+            if op.get("min") is not None:
+                limits.append(f"df_{cat}['{col}'] >= {op.get('min')}")
+            if op.get("max") is not None:
+                limits.append(f"df_{cat}['{col}'] <= {op.get('max')}")
+            if not limits:
+                return f"# clip_range {cat}.{col} (no-op)"
+            return f"df_{cat} = df_{cat}[{' & '.join(limits)}]"
+        return f"# clean_op: {op}"
+
+    prefilters = [
+        {
+            "category": c.left_side.split(".", 1)[0],
+            "column": c.left_side.split(".", 1)[1],
+            "operator": c.operator,
+            "value": c.right_side.value
+            if c.right_side.kind == "literal"
+            else c.right_side.ref,
+            "constraint_name": c.name,
+            "query_string": f"df_{c.left_side.split('.', 1)[0]} = df_{c.left_side.split('.', 1)[0]}[df_{c.left_side.split('.', 1)[0]}['{c.left_side.split('.', 1)[1]}'] {c.operator} {repr(c.right_side.value) if c.right_side.kind == 'literal' else c.right_side.ref}]",
+        }
+        for c in schema.constraints
+        if c.stage == "prefilter"
+    ]
+    enriched_clean_ops = []
+    for op in applied_clean_ops:
+        op_copy = dict(op)
+        op_copy["query_string"] = get_clean_op_query_string(op)
+        enriched_clean_ops.append(op_copy)
+
+    dataframe_queries = {
+        "prefilters": prefilters,
+        "dynamic_clean_ops": enriched_clean_ops,
+    }
+    generated_schema = schema.model_dump(exclude_defaults=True, exclude_none=True)
 
     required_cats = {dv.category for dv in schema.decision_variables if not dv.optional}
     emptied_req = required_cats.intersection(prefilter_report.emptied_categories)
@@ -88,6 +143,8 @@ def run_solver_pipeline(
                 "rows_after_prefilter": prefilter_report.per_category,
                 "solve_ms": 0,
                 "stripped_terms": gate.stripped_terms,
+                "dataframe_queries": dataframe_queries,
+                "generated_schema": generated_schema,
                 **resolution_trace,
             },
         )
@@ -133,6 +190,8 @@ def run_solver_pipeline(
                 "rows_after_prefilter": prefilter_report.per_category,
                 "solve_ms": report.solve_ms,
                 "stripped_terms": gate.stripped_terms,
+                "dataframe_queries": dataframe_queries,
+                "generated_schema": generated_schema,
                 **resolution_trace,
             },
         )
@@ -181,6 +240,8 @@ def run_solver_pipeline(
                 "rows_after_prefilter": prefilter_report.per_category,
                 "solve_ms": report.solve_ms,
                 "stripped_terms": gate.stripped_terms,
+                "dataframe_queries": dataframe_queries,
+                "generated_schema": generated_schema,
                 **resolution_trace,
             },
         )
