@@ -1,6 +1,6 @@
-# GAUSS — Domain-Agnostic Optimization Agent
+# OptiBuild — Domain-Agnostic Optimization Agent
 
-GAUSS turns a **free-form natural-language request** into a formal **Operations Research model** (decision variables, objectives, constraints), solves it with **CP-SAT** over a catalog of CSV datasets, and returns the optimal selection — with multi-objective ranking via **TOPSIS** when needed.
+OptiBuild turns a **free-form natural-language request** into a formal **Operations Research model** (decision variables, objectives, constraints), solves it with **CP-SAT** over a catalog of CSV datasets, and returns the optimal selection — with multi-objective ranking via **TOPSIS** when needed.
 
 The engine contains **zero domain knowledge**: everything domain-specific lives in a swappable *dataset pack*. The bundled demo pack optimizes **PC builds** ("quiet gaming PC under $1500"), but the same code optimizes any selection problem (meal plans, portfolios, fleets…) just by pointing it at another pack.
 
@@ -45,7 +45,7 @@ Full design docs live in [`specs/`](specs/): [`architecture.md`](specs/architect
 ## Setup
 
 ```bash
-git clone <repo-url> && cd gauss
+git clone <repo-url> && cd optibuild
 uv sync
 
 # LLM credentials (only needed for chat / NL demos)
@@ -89,6 +89,13 @@ The agent gathers your requirements, runs the full modelization → evaluation �
 ### 3. Switching domains (dataset packs)
 
 The active pack is selected with the `GAUSS_DATA_DIR` environment variable (default: `data/pc-csv`):
+
+> **Note — the `GAUSS_` prefix.** OptiBuild was originally released as *GAUSS*. The
+> project has since been renamed, but every environment variable still uses the
+> historical `GAUSS_` prefix (`GAUSS_DATA_DIR`, `GAUSS_EVAL_ENABLED`,
+> `GAUSS_FAST_MODELIZATION`, `GAUSS_DYNAMIC_CLEAN`), as do the package name and the
+> `gauss-solver` MCP server. These are internal identifiers — never user-facing — and
+> are kept as-is so existing `.env` files, deployments, and CI configs keep working.
 
 ```bash
 # PowerShell
@@ -172,7 +179,7 @@ Demo: `uv run python scripts/run_security_demo.py`.
 ## Project structure
 
 ```
-gauss/
+OptiBuild/
 ├── app/                        # Concierge (ADK root agent)
 │   ├── agent.py                #   root_agent + optimize_request tool + safety guard
 │   ├── concierge.py            #   3-iteration optimizer loop
