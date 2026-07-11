@@ -1,6 +1,10 @@
 """Unit tests for the Concierge optimizer loop orchestration."""
 
-from app.concierge import run_concierge
+from app.concierge import (
+    make_oneshot_modelizer,
+    make_staged_modelizer,
+    run_concierge,
+)
 from app.schema import FidelityViolation, PivotSchema, SolverFeedback, SolverResponse
 
 # Canned submodel structures
@@ -117,8 +121,9 @@ def test_concierge_first_try_success():
 
     res = run_concierge(
         user_request="Build PC",
-        catalog_summary="cpu: price\nmemory: price",
-        extractor=mock_extractor,
+        modelize=make_staged_modelizer(
+            "Build PC", "cpu: price\nmemory: price", mock_extractor
+        ),
         judge=mock_judge,
         solver_client=mock_solver_client,
     )
@@ -184,8 +189,9 @@ def test_concierge_coherence_fail_then_fixed():
 
     res = run_concierge(
         user_request="Build PC",
-        catalog_summary="cpu: price\nmemory: price",
-        extractor=mock_extractor_dynamic,
+        modelize=make_staged_modelizer(
+            "Build PC", "cpu: price\nmemory: price", mock_extractor_dynamic
+        ),
         judge=mock_judge,
         solver_client=mock_solver_client,
     )
@@ -228,8 +234,9 @@ def test_concierge_solver_infeasible_exhausted():
 
     res = run_concierge(
         user_request="Build PC",
-        catalog_summary="cpu: price\nmemory: price",
-        extractor=mock_extractor,
+        modelize=make_staged_modelizer(
+            "Build PC", "cpu: price\nmemory: price", mock_extractor
+        ),
         judge=mock_judge,
         solver_client=mock_solver_client,
         max_iterations=3,
@@ -261,8 +268,7 @@ def test_concierge_robust_modelization_failure():
 
     res = run_concierge(
         user_request="Build PC",
-        catalog_summary="cpu: price",
-        extractor=mock_extractor,
+        modelize=make_staged_modelizer("Build PC", "cpu: price", mock_extractor),
         judge=mock_judge,
         solver_client=mock_solver_client,
         max_iterations=2,
@@ -279,25 +285,24 @@ def test_concierge_robust_modelization_failure():
     )
 
 
-def test_run_fast_oneshot_path(monkeypatch):
-    """GAUSS_FAST_MODELIZATION: one-shot extraction + deterministic eval, same contract."""
-    from unittest.mock import patch
+# Fast config = the SAME loop parametrized: one-shot modelizer, judge=None,
+# max_iterations=1 (what concierge_runner.run selects for GAUSS_FAST_MODELIZATION=1).
 
-    import app.concierge_runner as runner
+CANNED_ONESHOT = {
+    "user_intent": "cheap pc",
+    "decision_variables": [
+        {
+            "category": "cpu",
+            "required_attributes": [{"name": "price", "data_type": "float"}],
+        },
+    ],
+    "derived_variables": [],
+    "objectives": [{"target_variable": "cpu.price", "direction": "minimize"}],
+    "constraints": [],
+}
 
-    canned = {
-        "user_intent": "cheap pc",
-        "decision_variables": [
-            {
-                "category": "cpu",
-                "required_attributes": [{"name": "price", "data_type": "float"}],
-            },
-        ],
-        "derived_variables": [],
-        "objectives": [{"target_variable": "cpu.price", "direction": "minimize"}],
-        "constraints": [],
-    }
 
+def test_fast_config_oneshot_success():
     def fake_solver(req):
         return SolverResponse(
             transaction_id=req.transaction_id,
@@ -305,16 +310,143 @@ def test_run_fast_oneshot_path(monkeypatch):
             result={"selections": {"cpu": {"name": "X", "price": 10.0}}},
         )
 
-    monkeypatch.setenv("GAUSS_FAST_MODELIZATION", "1")
-    with patch(
-        "app.llm_extractor.make_oneshot_extractor", return_value=lambda p: canned
-    ):
-        metadata = {"datasets": [], "required_categories": None}
-        res = runner._run_fast("cheap pc", metadata, fake_solver)
+    res = run_concierge(
+        user_request="cheap pc",
+        modelize=make_oneshot_modelizer("cheap pc", "- cpu: price", lambda p: CANNED_ONESHOT),
+        solver_client=fake_solver,
+        judge=None,
+        max_iterations=1,
+    )
 
     assert res["status"] == "SUCCESS"
     assert res["iterations"] == 1
     assert res["solver_response"].result.selections["cpu"]["name"] == "X"
+
+
+def test_fast_config_eval_failure_names_missing_categories():
+    def fake_solver(req):
+        raise AssertionError("solver must not be reached")
+
+    res = run_concierge(
+        user_request="cheap pc",
+        modelize=make_oneshot_modelizer("cheap pc", "- cpu: price", lambda p: CANNED_ONESHOT),
+        solver_client=fake_solver,
+        judge=None,
+        max_iterations=1,
+        required_categories=["cpu", "motherboard"],
+    )
+
+    assert res["status"] == "NEEDS_CLARIFICATION"
+    assert res["iterations"] == 1
+    assert res["schema"] is not None
+    assert any("motherboard" in q for q in res["questions"])
+    assert "solver_response" not in res
+
+
+def test_fast_config_solver_failure_attaches_response():
+    def fake_solver(req):
+        return SolverResponse(
+            transaction_id=req.transaction_id,
+            status="INFEASIBLE",
+            feedback=SolverFeedback(
+                reason="Budget too low",
+                missing_attributes=[],
+                failed_constraints=[],
+                relaxation_suggestions=[],
+            ),
+        )
+
+    res = run_concierge(
+        user_request="cheap pc",
+        modelize=make_oneshot_modelizer("cheap pc", "- cpu: price", lambda p: CANNED_ONESHOT),
+        solver_client=fake_solver,
+        judge=None,
+        max_iterations=1,
+    )
+
+    assert res["status"] == "NEEDS_CLARIFICATION"
+    assert res["iterations"] == 1
+    assert res["questions"] == ["Budget too low"]
+    assert res["solver_response"].status == "INFEASIBLE"
+
+
+def test_fast_config_modelization_error():
+    def fake_solver(req):
+        raise AssertionError("solver must not be reached")
+
+    res = run_concierge(
+        user_request="cheap pc",
+        modelize=make_oneshot_modelizer("cheap pc", "- cpu: price", lambda p: {}),
+        solver_client=fake_solver,
+        judge=None,
+        max_iterations=1,
+    )
+
+    assert res["status"] == "NEEDS_CLARIFICATION"
+    assert res["iterations"] == 1
+    assert res["schema"] is None
+    assert any("no valid objective" in q for q in res["questions"])
+
+
+def test_run_dispatch_fast_mode(monkeypatch):
+    """GAUSS_FAST_MODELIZATION=1 selects (oneshot modelize, judge=None, 1 iteration)."""
+    from unittest.mock import patch
+
+    import app.concierge_runner as runner
+
+    monkeypatch.setenv("GAUSS_FAST_MODELIZATION", "1")
+    captured = {}
+
+    def fake_run_concierge(**kwargs):
+        captured.update(kwargs)
+        return {"status": "SUCCESS", "iterations": 1}
+
+    with (
+        patch("app.concierge.run_concierge", side_effect=fake_run_concierge),
+        patch("app.llm_extractor.make_oneshot_extractor", return_value=lambda p: {}),
+        patch("app.mcp_server.catalog.load_metadata", return_value={"datasets": []}),
+        patch("app.mcp_server.catalog.build_catalog_summary", return_value=""),
+        patch("app.mcp_server.catalog.get_domain_context", return_value=None),
+    ):
+        res = runner.run("cheap pc")
+
+    assert res == {"status": "SUCCESS", "iterations": 1}
+    assert captured["judge"] is None
+    assert captured["max_iterations"] == 1
+    assert callable(captured["modelize"])
+    assert captured["user_request"] == "cheap pc"
+
+
+def test_run_dispatch_default_mode(monkeypatch):
+    """Default mode selects (staged modelize, LLM judge, 3 iterations)."""
+    from unittest.mock import patch
+
+    import app.concierge_runner as runner
+
+    monkeypatch.delenv("GAUSS_FAST_MODELIZATION", raising=False)
+    captured = {}
+
+    def fake_run_concierge(**kwargs):
+        captured.update(kwargs)
+        return {"status": "SUCCESS", "iterations": 1}
+
+    def sentinel_judge(user_request, schema):
+        return 1.0, []
+
+    with (
+        patch("app.concierge.run_concierge", side_effect=fake_run_concierge),
+        patch("app.llm_extractor.make_llm_extractor", return_value=lambda s, p: []),
+        patch("app.llm_judge.make_llm_judge", return_value=sentinel_judge),
+        patch("app.mcp_server.catalog.load_metadata", return_value={"datasets": []}),
+        patch("app.mcp_server.catalog.build_catalog_summary", return_value=""),
+        patch("app.mcp_server.catalog.get_domain_context", return_value=None),
+    ):
+        res = runner.run("cheap pc")
+
+    assert res == {"status": "SUCCESS", "iterations": 1}
+    assert captured["judge"] is sentinel_judge
+    assert captured["max_iterations"] == 3
+    assert callable(captured["modelize"])
 
 
 def test_repair_feedback_names_missing_categories():
@@ -345,8 +477,7 @@ def test_repair_feedback_names_missing_categories():
 
     res = run_concierge(
         user_request="cheapest Intel PC",
-        catalog_summary="- cpu: ...",
-        extractor=mock_extractor,
+        modelize=make_staged_modelizer("cheapest Intel PC", "- cpu: ...", mock_extractor),
         judge=mock_judge,
         solver_client=mock_solver_client,
         max_iterations=2,
@@ -360,3 +491,4 @@ def test_repair_feedback_names_missing_categories():
     ), f"repair feedback did not name missing categories: {seen_feedback}"
     # And the final clarification (budget exhausted) also names them
     assert res["status"] == "NEEDS_CLARIFICATION"
+    assert any("motherboard" in q for q in res["questions"])
