@@ -1,170 +1,186 @@
 # OptiBuild: Final System Workflow
 
-As-built successor of `specs/workflow.md` (the initial modelization). Reflects the real,
-verified structure as of **2026-07-05** — deployed on Cloud Run (revision `gauss-00008`),
-108 offline tests green. Quality assessment: `specs/quality-audit.md`.
+As-built reference of the business workflow, aligned with the code since the
+July 2026 refactor (unified concierge loop, imposed upstream nodes). Successor
+of `specs/workflow.md` (initial modelization); quality assessment in
+`specs/quality-audit.md`. For the oral-presentation version, see
+`specs/workflow-final-simple.md`.
 
-Differences vs. the initial workflow:
+Reference files: `app/agent.py`, `app/safety.py`, `app/concierge.py`,
+`app/concierge_runner.py`, `app/modelization.py`, `app/evaluator.py`,
+`solver_app/pipeline.py`, `solver_app/gates.py`.
 
-- **Node G (KB → numeric thresholds) dropped** — owner decision 2026-07-04: qualitative intent
-  becomes optimization *objectives*, explicit numbers become literal constraints. No knowledge base.
-- **Note n8 superseded, node n7 WIRED (2026-07-05)** — the LLM never generates/executes code:
-  dynamic cleaning is an LLM *planner* that sees only column names + a few sample values and
-  submits declarative `CleanOp`s (incl. `filter_contains`, literal-only substring) executed by
-  fixed, validated server code. This is how qualitative requirements ("an Intel CPU", "a white
-  case") are enforced **at runtime, through a tool, with zero pack-specific code**.
-- **Domain-agnostic engine** — zero domain knowledge in code: the active *dataset pack*
-  (`GAUSS_DATA_DIR`, default `data/pc-csv`) supplies the catalog, domain name, safety notes,
-  `required_categories` and `primary_cost_column`. Categories are resolved to catalog keys by
-  metadata search (exact → synonym → fuzzy) before data loading.
-- **Self-completing modelization** — the pack's required set is injected into stage 1, and
-  evaluator feedback names missing categories explicitly: the agent defines the decision
-  variables itself and never asks the user to enumerate components.
-- **Catalog-grounded judge** — the intent-fidelity judge sees the available columns and cannot
-  demand data that does not exist (best-available proxies are accepted).
-- **Cost-bounded LLM surface** — thinking budgets capped per call (512/1024), compact context
-  (lean catalog per stage, compact prior-JSON, stripped tool returns), at most one
-  `optimize_request` call per user message. ~1-2¢ per happy-path conversation.
-- **Remaining gap (1)**: the Solver is called in-process — A2A HTTP export pending
-  (`a2a_app=None`); the request/response contract is identical in both modes.
+## Global graph
 
 ```mermaid
----
-config:
-  layout: elk
----
-flowchart TB
-    START(("START")) --> A["Input: free-form request (chat / adk web / Cloud Run)"]
+flowchart TD
+    U([User — chat 'adk web']) --> RA[root_agent ADK — Gemini Flash<br/>requirements gathering + PII redaction]
+    RA --> READY{Request refined enough?<br/>identifiable objective + usable limit}
+    READY -->|"no → clarifying questions"| U
+    READY -->|yes| SG{SAFETY GATE — imposed node<br/>outside the loop, before any iteration<br/>app/safety.py, fail-open}
+    SG -->|refused| REF[REFUSED<br/>explanation to the user] --> U
+    SG -->|"safe → optimize_request(user_request)"| LOOP
 
-    subgraph ROOT["Concierge root_agent — ADK LlmAgent (app/agent.py)"]
-        B["root_agent (Gemini)<br>PII-redaction callbacks<br>maturity check: objective + limit required<br>max 1 optimize call / user message"]
-        OPB[["optimize_request tool<br>ONE consolidated NL request string<br>returns lean JSON view (no internal schema)"]]
+    subgraph CONCIERGE["Concierge loop (app/concierge.py + concierge_runner.py)"]
+        LOOP[Iteration start] --> MOD[LLM modelization → PivotSchema<br/>default: 4 staged extractions · eval: 1 one-shot<br/>normalization + strict Pydantic validation + reference repair]
+        MOD --> EVD{Deterministic evaluation<br/>completeness & coherence ≥ 0.80}
+        EVD -->|"pass (default mode)"| JUDGE{LLM judge<br/>intent fidelity ≥ 0.80}
+        EVD -->|"pass (eval mode: no judge)"| REQ
+        JUDGE -->|pass| REQ[SolverRequest<br/>validated PivotSchema + original prompt]
+        EVD -->|fail| REPAIR
+        JUDGE -->|fail| REPAIR[Targeted REPAIR — default mode only<br/>re-extract faulty stages, max 3 iterations]
+        REPAIR --> LOOP
     end
 
-    SG{"SAFETY GATE — imposed workflow node<br>direct LLM check (app/safety.py + pack safety_notes)<br>run by concierge_runner before the loop, fail-open"}
+    REQ --> P1
 
-    A --> B
-    B -- "consolidated request" --> OPB
-    OPB --> SG
-    SG -- "REFUSED (iterations 0)" --> B
-
-    subgraph LOOP["Concierge Optimizer Loop — app/concierge.py (ONE loop; fast mode = one-shot modelize, no judge, 1 iteration)"]
-        subgraph MODEL["OR Problem Modelization — 4 staged LLM extractions, bounded thinking (app/modelization.py)"]
-            C1["1a - DECISION VARIABLES<br>catalog vocabulary + pack required set<br>(injected via DomainContext)"] --> C2["1b - DERIVED VARIABLES<br>restricted formula grammar (no code)"]
-            C2 --> D["2 - OBJECTIVES<br>direction + weights + rationale"] --> E["3 - CONSTRAINTS<br>literal / var_ref thresholds"]
-        end
-        NORM["Normalize & repair layer<br>synonym maps, formula rewrite,<br>dangling-ref auto-repair, logged drops"]
-        F["Pivot schema (Pydantic)<br>app/schema.py — cross-ref validators"]
-        EVAL{"EVALUATOR (deterministic)<br>completeness: pack required_categories<br>coherence: contradiction scan"}
-        JUDGE["LLM judge (temp 0, thinking 512)<br>intent fidelity — grounded in<br>available catalog columns"]
-        FB["Structured feedback<br>NAMES missing categories / violations<br>target_stages for REPAIR"]
-        GUARD{"iteration &lt; 3 ?"}
-        ASK["NEEDS_CLARIFICATION<br>targeted questions"]
+    subgraph SOLVER["Deterministic solver pipeline (solver_app/pipeline.py)"]
+        P1[Category resolution<br/>exact → synonym → fuzzy] --> P2[Load pack CSVs<br/>GAUSS_DATA_DIR]
+        P2 --> GATES{Data gates<br/>referenced categories & columns present?}
+        GATES -->|missing| MD[MISSING_DATA]
+        GATES -->|ok| CLEAN[Systematic cleaning<br/>+ LLM dynamic cleaning<br/>validated CleanOps, revert if >90% dropped]
+        CLEAN --> PREF[Prefilter<br/>single-category constraints]
+        PREF --> CPSAT[CP-SAT — OR-Tools<br/>+ TOPSIS if ≥ 2 objectives]
+        CPSAT -->|solution| OK[SUCCESS]
+        CPSAT -->|no solution| INF[INFEASIBLE<br/>+ relaxation suggestions]
     end
 
-    SG -- "safe / gate unavailable" --> C1
-    E --> NORM --> F --> EVAL
-    EVAL -- "det pass (≥ 0.80)" --> JUDGE
-    EVAL -- "below 0.80" --> FB
-    JUDGE -- "below 0.80" --> FB
-    FB --> GUARD
-    GUARD -- "yes — re-run only target_stages" --> C1
-    GUARD -- no --> ASK --> B
+    OK --> RESP[Result: selections + derived values<br/>+ objective report + trace] --> RA
+    MD --> FBK
+    INF --> FBK[solver feedback]
+    FBK -->|default mode| REPAIR
+    FBK -->|eval mode| NC
+    REPAIR -.->|"3 iterations exhausted"| NC[NEEDS_CLARIFICATION<br/>questions for the user] --> RA
 
-    JUDGE -- "pass" --> REQ[/"SolverRequest (pivot schema)<br>in-process call — A2A HTTP pending"/]
-
-    subgraph SOLVER["Solver Specialist — solver_app/ (deterministic pipeline)"]
-        SA["solve(): validates SolverRequest"]
-        RES["Category resolution<br>search metadata: exact → synonym → fuzzy ≥0.7<br>schema rewritten, mapping traced"]
-        N2["load_data: match categories/columns<br>→ coverage report"]
-        G1{"Gate 1: all decision vars<br>satisfied by data?"}
-        G2{"Gate 2: missing var defines<br>a constraint / goal?"}
-        N5["Systematic cleaning (pandas)<br>cost-column rules, coercion, IQR"]
-        N7["DYNAMIC CLEANING (n7 — WIRED)<br>LLM planner sees columns + samples only<br>→ declarative CleanOps (filter_contains...)<br>validated & executed server-side, fail-open"]
-        H["PRE-FILTER (pandas)<br>single-component literal rules"]
-        I["CP-SAT: assemble valid builds<br>ExactlyOne / budget / var_ref headroom"]
-        J{"# objectives ?"}
-        K["CP-SAT optimizes directly"]
-        M["TOPSIS (pymcdm)<br>rank K=50 candidates"]
-        N13{"Found a config ?"}
-    end
-
-    REQ --> SA --> RES --> N2 --> G1
-    G1 -- YES --> N5
-    G1 -- NO --> G2
-    G2 -- "NO — strip descriptive attrs" --> N5
-    G2 -- "YES → MISSING_DATA" --> FB
-    N5 --> N7 --> H
-    H -- "required category emptied → INFEASIBLE" --> FB
-    H --> I --> J
-    J -- "1" --> K --> N13
-    J -- "≥2" --> M --> N13
-    N13 -- "YES → SUCCESS" --> OUT["SolverResponse → root_agent<br>markdown table + derived values<br>+ objective report"]
-    N13 -- "NO → INFEASIBLE<br>+ relaxation suggestions" --> FB
-    OUT --> B
-    B --> FIN(("END"))
-
-    subgraph MCP["FastMCP Server — app/mcp_server (7 tools over Stdio; pipeline calls the same functions in-process)"]
-        T1[["search_datasets"]]
-        T2[["load_data"]]
-        T3[["clean_systematic"]]
-        T4[["query_data (read-only, numexpr)"]]
-        T5[["clean_dynamic (5-op CleanOp vocabulary)"]]
-        T6[["prefilter"]]
-        T7[["solve_build (CP-SAT + TOPSIS)"]]
-    end
-
-    subgraph DATA["Data layer — dataset pack (GAUSS_DATA_DIR, default data/pc-csv)"]
-        CSV[("pack CSVs (demo: 25 PC categories,<br>memory enriched by pack tooling)")]
-        META[("metadata.json catalog<br>domain, required_categories,<br>primary_cost_column, safety_notes,<br>columns, synonyms, quirks")]
-    end
-
-    RES -.-> T1
-    N2 -.-> T2
-    N5 -.-> T3
-    N7 -.-> T5
-    H -.-> T6
-    I -.-> T7
-    K -.-> T7
-    M -.-> T7
-    T1 -.-> META
-    T2 -.-> CSV & META
-
-    NOTE1["NOTE: KB node G dropped —<br>qualitative intent → objectives,<br>explicit numbers → literal constraints,<br>keywords → runtime filter_contains"]
-    NOTE2["NOTE: zero LLM code execution —<br>allowlisted numexpr expressions,<br>closed CleanOp vocabulary,<br>literal-only substring matching"]
-    E -.- NOTE1
-    T5 -.- NOTE2
-
-    style C1 fill:#FFCDD2
-    style C2 fill:#FFCDD2
-    style D fill:#FFCDD2
-    style E fill:#FFCDD2
-    style A stroke:#757575,fill:#757575,color:#ffffff
-    style NORM fill:#e2e8f0
-    style F fill:#4a5568,color:#fff
-    style EVAL fill:#dd6b20,color:#fff
+    style U fill:#4a5568,color:#fff
+    style RA fill:#FFCDD2,color:#5c2e00
+    style READY fill:#fbd38d,color:#5c2e00
+    style SG fill:#dd6b20,color:#fff,stroke:#9c3800,stroke-width:2px
+    style REF fill:#c53030,color:#fff
+    style LOOP fill:#e2e8f0
+    style MOD fill:#FFCDD2,color:#5c2e00
+    style EVD fill:#dd6b20,color:#fff
     style JUDGE fill:#dd6b20,color:#fff
-    style FB fill:#fbd38d,color:#5c2e00
+    style REPAIR fill:#fbd38d,color:#5c2e00
     style REQ fill:#d9edf7,stroke:#31708f
-    style I fill:#2b6cb0,color:#fff
-    style M fill:#2f855a,color:#fff
-    style N7 fill:#fff3b0,stroke:#d4a017,stroke-width:2px
-    style NOTE1 fill:#fff3b0,stroke:#d4a017,color:#5c4400
-    style NOTE2 fill:#fff3b0,stroke:#d4a017,color:#5c4400
-    style START fill:#2f855a,stroke:#00C853,color:#ffffff
-    style FIN stroke:#D50000,fill:#D50000,color:#ffffff
+    style P1 fill:#e2e8f0
+    style P2 fill:#e2e8f0
+    style GATES fill:#fbd38d,color:#5c2e00
+    style CLEAN fill:#fff3b0,stroke:#d4a017,stroke-width:2px
+    style PREF fill:#e2e8f0
+    style CPSAT fill:#2b6cb0,color:#fff
+    style OK fill:#2f855a,color:#fff
+    style RESP fill:#2f855a,color:#fff
+    style MD fill:#c53030,color:#fff
+    style INF fill:#c53030,color:#fff
+    style FBK fill:#fbd38d,color:#5c2e00
+    style NC fill:#fbd38d,color:#5c2e00
 ```
 
-## Legend / status
+### Color legend
 
-| Marker | Meaning |
+| Color | Meaning |
 |---|---|
-| Red stages (C1–E) | LLM structured-output extractions (staged, REPAIR-able individually, thinking capped 512/1024) |
-| Grey `NORM` | Deterministic tolerance layer for LLM output shapes (7 repair mechanisms, all regression-tested) |
-| Orange (EVAL/JUDGE) | Hybrid evaluator — deterministic gates first; catalog-grounded LLM judge behind them |
-| Yellow `N7` | The one place LLM-authored *declarations* touch data — closed vocabulary, validated & executed by fixed server code, fail-open (`GAUSS_DYNAMIC_CLEAN=0` to disable) |
-| Blue (CP-SAT) / Green (TOPSIS) | Deterministic optimization core (`app/mcp_server/cpsat.py`, `ranking.py`) |
-| `REQ` in-process note | Contract (`SolverRequest`/`SolverResponse`) is final; HTTP A2A export still pending (`a2a_app=None`) |
+| Pink | LLM calls (conversation, modelization extractions) |
+| Dark orange | Screening/judgment nodes (safety gate, evaluator, judge) |
+| Light orange | Decisions & feedback (maturity, data gates, REPAIR, clarification) |
+| Yellow (`CLEAN`) | The one place LLM-authored *declarations* touch data — closed CleanOp vocabulary, validated & executed by fixed server code, fail-open |
+| Blue | Deterministic optimization core (CP-SAT + TOPSIS) |
+| Green | Success path |
+| Red | Terminal failures (refusal, missing data, infeasible) |
+| Grey | Deterministic plumbing |
+
+## Imposed upstream nodes (outside the concierge loop)
+
+Two mandatory passages precede any iteration — they belong to the workflow,
+not to the LLM's discretion:
+
+1. **Maturity check** — carried by the root agent (conversational judgment).
+   Criteria: an identifiable objective (something to minimize/maximize) AND at
+   least one usable limit or preference. Until satisfied, the root agent asks
+   clarifying questions and does NOT call `optimize_request` — no iteration is
+   consumed.
+2. **Safety gate** — every request reaching the loop first goes through the
+   gate (`app/safety.py`: direct structured LLM check, prompt
+   `app/prompts/safety_guard.txt` + active pack `safety_notes`, PII-redacted
+   input). Imposed by `concierge_runner.run()` for every entry point (ADK chat,
+   scripts, eval). **Fail-open**: a technical failure (no API key, network,
+   quota, parse error) logs a warning and lets the request proceed; refusal
+   happens only on an explicit unsafe verdict. A refusal returns status
+   `REFUSED` (`iterations: 0`) — the loop is never entered.
+
+## Modelization detail ("LLM modelization" node)
+
+Both modes produce the same `PivotSchema` and go through the same validation
+code (`_validate_items` + `_assemble_schema`); only the number of LLM calls
+differs:
+
+- **Default mode** — 4 staged extractions, each fed the previous outputs:
+  1. decision variables (categories + required attributes)
+  2. derived variables (closed grammar: `sum/min/max/avg/count`)
+  3. objectives (`minimize`/`maximize` + weights)
+  4. constraints (`left_side op right_side`, hard/soft, provenance)
+- **Eval mode** (`GAUSS_FAST_MODELIZATION=1`) — 1 one-shot call producing all
+  4 sections at once (`build_schema_oneshot`).
+
+After extraction: LLM-synonym rewriting, item-by-item strict Pydantic
+validation (invalid items dropped and logged), then dangling-reference repair
+(auto-declaration of forgotten attributes, orphan drops; 0 valid objectives →
+clear error → REPAIR).
+
+## Default mode vs eval mode
+
+Both modes run through the SAME `run_concierge` loop — the mode only selects
+its parameters (`concierge_runner.run`):
+
+| | Default mode | Eval mode (`GAUSS_FAST_MODELIZATION=1`) |
+|---|---|---|
+| Safety gate | imposed | **identical** (imposed) |
+| Modelization | 4 staged LLM calls (`make_staged_modelizer`) | 1 one-shot LLM call (`make_oneshot_modelizer`) |
+| Validation/assembly | `_validate_items` + `_assemble_schema` | **identical** (same code) |
+| Evaluation | deterministic **+ LLM judge** (fidelity) | deterministic only (`judge=None`) |
+| Repair | up to 3 targeted iterations | none (`max_iterations=1`) |
+| Total LLM calls | 5+ per iteration (≤ ~15) + gate | 1 + gate |
+| Solver pipeline | same pipeline, same `SolverRequest` | **identical** |
+
+## Exit statuses
+
+| Status | Cause | Reaction |
+|---|---|---|
+| `SUCCESS` | OPTIMAL/FEASIBLE solution found | Immediate return to the root agent |
+| `REFUSED` | Safety gate explicit unsafe verdict | Loop never entered (`iterations: 0`); refusal presented, never retried |
+| `MISSING_DATA` | Referenced column/category absent from the CSVs (data gates) | Default: REPAIR stages 3–4 with feedback · Eval: direct clarification |
+| `INFEASIBLE` | No combination satisfies the hard constraints | Default: REPAIR stages 3–4 + relaxation suggestions · Eval: direct clarification |
+
+After 3 iterations without success (or the 1st failure in eval mode) →
+`NEEDS_CLARIFICATION` with the accumulated questions; `solver_response` is
+attached whenever the solver ran.
+
+## Contracts & security boundaries
+
+- **PivotSchema** (`app/schema.py`): the single contract between modelization,
+  evaluator, and solver. Everything is strict Pydantic.
+- **No LLM code execution**: formulas = closed grammar `sum(a.x, b.y)`; pandas
+  query expressions = allowlisted tokens + `engine="numexpr"`; dynamic cleaning
+  = closed CleanOp vocabulary with automatic revert of any batch dropping >90%
+  of a category.
+- **User prompt = data**: transported in delimited `<user_request>` blocks; the
+  solver specialist never follows `context.original_prompt`.
+- **Swappable dataset pack** (`GAUSS_DATA_DIR`): the engine holds zero domain
+  knowledge; `metadata.json` supplies domain, required categories, cost column,
+  synonyms, safety notes. Categories are resolved to catalog keys by metadata
+  search (exact → synonym → fuzzy) before data loading.
+
+## Under the hood
+
+- **FastMCP server** (`app/mcp_server`, 7 tools over Stdio; the pipeline calls
+  the same functions in-process): `search_datasets`, `load_data`,
+  `clean_systematic`, `query_data` (read-only, numexpr), `clean_dynamic`
+  (closed CleanOp vocabulary), `prefilter`, `solve_build` (CP-SAT + TOPSIS).
+  DataFrames never cross the MCP boundary — tools exchange an opaque
+  `dataset_handle`.
+- **Solver called in-process** through the final `SolverRequest`/`SolverResponse`
+  contract; A2A HTTP export pending (`a2a_app=None`).
 
 ## Operational modes (env flags)
 
@@ -172,7 +188,7 @@ flowchart TB
 |---|---|
 | `GAUSS_DATA_DIR` | Selects the active dataset pack (default `data/pc-csv`) |
 | `GAUSS_FAST_MODELIZATION=1` | One-shot modelization, no LLM judge, single iteration of the same concierge loop (~5× fewer LLM calls) |
-| `GAUSS_DYNAMIC_CLEAN=0` | Disables the n7 dynamic-cleaning planner (default: on, fail-open) |
+| `GAUSS_DYNAMIC_CLEAN=0` | Disables the dynamic-cleaning planner (default: on, fail-open) |
 | `GAUSS_EVAL_ENABLED=1` | Unlocks the admin-only evaluation tooling (`scripts/run_eval.py`) |
 
 ## Deployment
