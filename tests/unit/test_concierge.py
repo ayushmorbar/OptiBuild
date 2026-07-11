@@ -408,7 +408,7 @@ def test_run_dispatch_fast_mode(monkeypatch):
         patch("app.mcp_server.catalog.build_catalog_summary", return_value=""),
         patch("app.mcp_server.catalog.get_domain_context", return_value=None),
     ):
-        res = runner.run("cheap pc")
+        res = runner.run("cheap pc", safety_checker=lambda r: (True, None))
 
     assert res == {"status": "SUCCESS", "iterations": 1}
     assert captured["judge"] is None
@@ -441,12 +441,53 @@ def test_run_dispatch_default_mode(monkeypatch):
         patch("app.mcp_server.catalog.build_catalog_summary", return_value=""),
         patch("app.mcp_server.catalog.get_domain_context", return_value=None),
     ):
-        res = runner.run("cheap pc")
+        res = runner.run("cheap pc", safety_checker=lambda r: (True, None))
 
     assert res == {"status": "SUCCESS", "iterations": 1}
     assert captured["judge"] is sentinel_judge
     assert captured["max_iterations"] == 3
     assert callable(captured["modelize"])
+
+
+def test_run_refused_skips_loop():
+    """The imposed safety gate refuses BEFORE the loop: run_concierge never runs."""
+    from unittest.mock import patch
+
+    import app.concierge_runner as runner
+
+    with (
+        patch("app.concierge.run_concierge") as loop,
+        patch("app.mcp_server.catalog.load_metadata", return_value={"datasets": []}),
+    ):
+        res = runner.run("bad request", safety_checker=lambda r: (False, "nope"))
+
+    assert res == {"status": "REFUSED", "questions": ["nope"], "iterations": 0}
+    loop.assert_not_called()
+
+
+def test_run_safe_enters_loop(monkeypatch):
+    """A safe verdict proceeds into the (single) concierge loop."""
+    from unittest.mock import patch
+
+    import app.concierge_runner as runner
+
+    monkeypatch.delenv("GAUSS_FAST_MODELIZATION", raising=False)
+    with (
+        patch(
+            "app.concierge.run_concierge",
+            return_value={"status": "SUCCESS", "iterations": 1},
+        ) as loop,
+        patch("app.llm_extractor.make_llm_extractor", return_value=lambda s, p: []),
+        patch("app.llm_judge.make_llm_judge", return_value=lambda u, s: (1.0, [])),
+        patch("app.mcp_server.catalog.load_metadata", return_value={"datasets": []}),
+        patch("app.mcp_server.catalog.build_catalog_summary", return_value=""),
+        patch("app.mcp_server.catalog.get_domain_context", return_value=None),
+    ):
+        res = runner.run("cheap pc", safety_checker=lambda r: (True, None))
+
+    assert res == {"status": "SUCCESS", "iterations": 1}
+    assert loop.call_count == 1
+    assert loop.call_args.kwargs["user_request"] == "cheap pc"
 
 
 def test_repair_feedback_names_missing_categories():

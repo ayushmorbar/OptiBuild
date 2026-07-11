@@ -16,9 +16,9 @@ Prompt to use on camera:
 
 > Build me a quiet gaming PC under $1500 with at least 32GB of RAM
 
-Point out in the ADK event pane: the `safety_guard` sub-agent call, then the single
-consolidated `optimize_request` tool call, then the final table (selections + derived
-values + objective report).
+Point out in the ADK event pane: the single consolidated `optimize_request` tool call —
+the deterministic safety gate (`app/safety.py`) runs first inside it — then the final
+table (selections + derived values + objective report).
 
 ## Segment 2 — MCP server — concept 2
 

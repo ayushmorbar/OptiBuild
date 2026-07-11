@@ -13,7 +13,7 @@ flowchart TB
 
     subgraph CONCIERGE["🤵 CONCIERGE AGENT (Gemini)"]
         direction TB
-        S1["1 · Understand & secure<br><i>safety guard, gather goals & limits</i>"]
+        S1["1 · Understand & secure<br><i>maturity check, gather goals & limits;<br>imposed safety gate before modelization</i>"]
         S2["2 · Model the problem<br><i>variables · objectives · constraints</i>"]
         S3["3 · Validate & self-correct<br><i>evaluator + LLM judge, up to 3 passes</i>"]
     end
@@ -48,13 +48,13 @@ flowchart TB
 | Agent | Role | Nature |
 |---|---|---|
 | **Concierge** | Talks to the user, models the problem, validates it | LLM (Gemini, ADK) |
-| **Safety Guard** | Screens every request before anything runs | LLM sub-agent |
+| **Safety Gate** | Screens every request before the loop (imposed workflow node, fail-open on technical failure) | Direct LLM check |
 | **LLM Judge** | Checks the model matches the user's *intent* | LLM sub-step |
 | **Solver Specialist** | Prepares data and computes the optimum | Deterministic pipeline + one LLM data-filtering step |
 
 ## The 6 steps
 
-1. **Understand & secure** — safety check, then gather goals, limits, preferences.
+1. **Understand & secure** — gather goals, limits, preferences until the request is refined enough; the imposed safety gate then screens it before anything runs.
 2. **Model** — the request becomes a formal OR model: decision variables, objectives, constraints.
 3. **Validate & self-correct** — completeness/coherence checks + intent judge; the loop repairs itself (max 3 passes) before ever bothering the user.
 4. **Prepare the data** — categories matched by metadata search; cleaning; qualitative needs ("an Intel CPU") become on-the-fly data filters.

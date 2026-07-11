@@ -72,6 +72,24 @@ def test_optimize_request_needs_clarification():
     assert "schema" not in res
 
 
+def test_optimize_request_refused_passthrough():
+    """A safety-gate refusal must reach the root agent unchanged and JSON-safe."""
+    rich_result = {
+        "status": "REFUSED",
+        "questions": ["Refused: illegal activity."],
+        "iterations": 0,
+    }
+
+    with patch("app.concierge_runner.run", return_value=rich_result):
+        res = optimize_request("crack licensed software")
+
+    json.dumps(res)
+    assert res["status"] == "REFUSED"
+    assert res["questions"] == ["Refused: illegal activity."]
+    assert res["iterations"] == 0
+    assert "schema" not in res
+
+
 def test_optimize_request_error_handling():
     with patch("app.concierge_runner.run", side_effect=ValueError("Pipeline failure")):
         res = optimize_request("Build a PC")

@@ -14,8 +14,10 @@ Built with **Google ADK** (multi-agent), **FastMCP** (tool server), **OR-Tools C
 User request (chat)
    │
    ▼
-Concierge root_agent (ADK, Gemini)          ← safety guard + PII redaction
+Concierge root_agent (ADK, Gemini)          ← PII redaction + maturity check
    │  consolidated request → optimize_request tool
+   ▼
+Safety gate (deterministic LLM check)       ← imposed before the loop; REFUSED stops here
    ▼
 Concierge Optimizer Loop (max 3 iterations)
    │  1. Modelization — 4 staged LLM extractions:
@@ -181,8 +183,9 @@ Demo: `uv run python scripts/run_security_demo.py`.
 ```
 OptiBuild/
 ├── app/                        # Concierge (ADK root agent)
-│   ├── agent.py                #   root_agent + optimize_request tool + safety guard
-│   ├── concierge.py            #   3-iteration optimizer loop
+│   ├── agent.py                #   root_agent + optimize_request tool (PII redaction)
+│   ├── safety.py               #   imposed safety gate (fail-open, pack safety_notes)
+│   ├── concierge.py            #   the ONE optimizer loop + modelize factories
 │   ├── concierge_runner.py     #   wiring: extractor + judge + solver client
 │   ├── modelization.py         #   4 staged LLM extractions (+ one-shot path)
 │   ├── evaluator.py            #   deterministic completeness/coherence checks
@@ -232,7 +235,7 @@ Cost-control env vars:
 | Variable | Effect |
 |---|---|
 | `GAUSS_EVAL_ENABLED=1` | Unlocks the eval tooling (`scripts/run_eval.py`, `tests/eval/simulate_dataset.py`) |
-| `GAUSS_FAST_MODELIZATION=1` | One-shot extraction + deterministic evaluation (~5x fewer LLM calls); set automatically by `run_eval.py --mode fast` |
+| `GAUSS_FAST_MODELIZATION=1` | One-shot modelization + deterministic evaluation — a single iteration of the same concierge loop (~5x fewer LLM calls); set automatically by `run_eval.py --mode fast` |
 
 Results land in `artifacts/traces/` (generation) and `artifacts/eval/` (grading);
 scores are recorded in `docs/eval-report.md`.
@@ -241,10 +244,9 @@ scores are recorded in `docs/eval-report.md`.
 
 ## Status & roadmap
 
-**Done:** pivot schema & contracts, MCP server (7 tools), CP-SAT + TOPSIS solver, data gates, systematic/dynamic cleaning (security-hardened), staged & one-shot modelization, hybrid evaluator with repair loop, ADK chat entry point, domain-agnostic dataset packs, category resolution.
+**Done:** pivot schema & contracts, MCP server (7 tools), CP-SAT + TOPSIS solver, data gates, systematic/dynamic cleaning (security-hardened, wired by default), staged & one-shot modelization in a single unified concierge loop, hybrid evaluator with repair loop, imposed safety gate, ADK chat entry point, domain-agnostic dataset packs, category resolution.
 
 **Open** (see [`specs/tasks.md`](specs/tasks.md)):
-- Dynamic-cleaning hook not yet invoked by the pipeline (capability implemented & tested)
 - A2A over HTTP (solver currently called in-process; contract identical)
 - Budget sanitization at intake
 - Phase 7: `agents-cli eval` suite (23 cases) + Cloud Run / Agent Engine deployment

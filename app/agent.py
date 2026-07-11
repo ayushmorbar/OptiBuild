@@ -18,27 +18,14 @@ import google.auth
 from google.adk.agents import Agent
 from google.adk.apps import App
 from google.adk.models import Gemini
-from google.adk.tools import AgentTool
 from google.genai import types
+
+from app.safety import load_prompt, redact_text
 
 if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").upper() == "TRUE":
     _, project_id = google.auth.default()
     os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
     os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
-
-import re
-
-
-def redact_text(text: str) -> str:
-    """Redacts credit card numbers (13-16 digits with spaces/dashes) and SSNs."""
-    # Match standard credit cards: 13-16 digits with optional spaces or dashes
-    cc_pattern = r"\b(?:\d[ -]*?){13,16}\b"
-    # Match standard US Social Security Numbers (SSN)
-    ssn_pattern = r"\b\d{3}-\d{2}-\d{4}\b"
-
-    text = re.sub(cc_pattern, "[REDACTED CREDIT CARD]", text)
-    text = re.sub(ssn_pattern, "[REDACTED PII]", text)
-    return text
 
 
 async def before_model_redact_pii(callback_context, llm_request) -> None:
@@ -67,44 +54,6 @@ async def after_model_redact_pii(callback_context, llm_response) -> None:
         for part in llm_response.content.parts:
             if part.text:
                 part.text = redact_text(part.text)
-
-
-def load_prompt(filename: str) -> str:
-    """Helper to dynamically load prompt content from the prompts directory."""
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompts", filename)
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read().strip()
-
-
-def build_safety_guard_instruction() -> str:
-    """Generic safety prompt, extended with the active pack's domain safety notes."""
-    instruction = load_prompt("safety_guard.txt")
-    try:
-        from app.mcp_server import catalog
-
-        domain = catalog.get_domain_context(catalog.load_metadata())
-        if domain.safety_notes:
-            notes = "\n".join(f"- {note}" for note in domain.safety_notes)
-            instruction += f"\nAdditionally refuse requests involving:\n{notes}\n"
-    except Exception:
-        # Missing/invalid pack must never break agent import; generic prompt suffices.
-        pass
-    return instruction
-
-
-# 1. Safety Guard Agent (Sub-Agent for Multi-Agent System)
-safety_guard = Agent(
-    name="safety_guard",
-    model=Gemini(
-        model="gemini-flash-latest",
-        retry_options=types.HttpRetryOptions(attempts=3),
-    ),
-    instruction=build_safety_guard_instruction(),
-    before_model_callback=before_model_redact_pii,
-    after_model_callback=after_model_redact_pii,
-)
-
-safety_guard_tool = AgentTool(agent=safety_guard)
 
 
 def _llm_view(result: dict) -> dict:
@@ -210,6 +159,8 @@ def sanitize_budget(budget_str: str) -> float:
 
 
 # 3. Concierge Agent (Root Agent)
+# Safety is NOT a tool here: the deterministic safety gate (app/safety.py) is
+# imposed by concierge_runner.run() before the loop, for every entry point.
 root_agent = Agent(
     name="root_agent",  # Must match the root_agent registered by App
     model=Gemini(
@@ -217,7 +168,7 @@ root_agent = Agent(
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
     instruction=load_prompt("concierge_agent.txt"),
-    tools=[optimize_request, safety_guard_tool],
+    tools=[optimize_request],
     before_model_callback=before_model_redact_pii,
     after_model_callback=after_model_redact_pii,
 )

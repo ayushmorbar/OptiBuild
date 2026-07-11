@@ -70,10 +70,11 @@ sessions; supersedes the corresponding details below:
   PivotSchema and solver trace stripped); the concierge prompt allows **at most one
   `optimize_request` call per user message**. Net: ~8K input / <=4.4K output tokens per
   happy-path request (~1-2 cents).
-- **Execution modes** (env flags): `GAUSS_FAST_MODELIZATION=1` (one-shot extraction +
-  deterministic evaluation, ~5x fewer calls), `GAUSS_DYNAMIC_CLEAN`, and the **admin-gated
-  evaluation** `GAUSS_EVAL_ENABLED=1` (`scripts/run_eval.py`; refuses to run otherwise —
-  the 23-case suite spends real credits and is internal-only).
+- **Execution modes** (env flags): `GAUSS_FAST_MODELIZATION=1` (one-shot modelization,
+  no LLM judge, single iteration of the same concierge loop — ~5x fewer calls),
+  `GAUSS_DYNAMIC_CLEAN`, and the **admin-gated evaluation** `GAUSS_EVAL_ENABLED=1`
+  (`scripts/run_eval.py`; refuses to run otherwise — the 23-case suite spends real
+  credits and is internal-only).
 - **Deployment (concept 6, done)**: single Cloud Run service (`europe-west1`,
   scale-to-zero, IAM-private, Vertex-mode Gemini), data pack co-located in the container
   (`Dockerfile` + `.gcloudignore` re-including the git-ignored CSVs).
@@ -435,7 +436,9 @@ is one LLM call with `response_schema` forced to the corresponding Pydantic subm
 the outputs of all prior stages as context. Rationale: Evaluator feedback names a failing
 dimension (missing category / conflicting constraint / intent gap), and a staged pipeline can
 re-run *only the offending stage(s)* on iteration 2–3 instead of re-extracting everything —
-cheaper and far less regression-prone than one-shot re-prompting.
+cheaper and far less regression-prone than one-shot re-prompting. The one-shot path runs
+through the same concierge loop as a `modelize` adapter with `judge=None`,
+`max_iterations=1` (no parallel code path).
 
 | Stage | Workflow node | Output type | Input context |
 |---|---|---|---|
@@ -929,9 +932,9 @@ requires co-location.
 
 | # | Capstone concept | Module(s) — as built (2026-07-05) | How it survives the redesign |
 |---|---|---|---|
-| 1 | Agent / multi-agent (ADK) | `app/agent.py` (root_agent + `safety_guard` sub-agent + `optimize_request` tool), `app/concierge.py`, `app/evaluator.py`, `solver_app/agent.py` | Concierge (root agent + safety-guard sub-agent + evaluator loop) → Solver Specialist. Solver called in-process for V1 (contract identical to A2A, §3); `to_a2a` export present, HTTP endpoint pending |
+| 1 | Agent / multi-agent (ADK) | `app/agent.py` (root_agent + `optimize_request` tool), `app/safety.py` (imposed safety gate), `app/concierge.py`, `app/evaluator.py`, `solver_app/agent.py` | Concierge (root agent + deterministic safety gate + evaluator loop) → Solver Specialist. Solver called in-process for V1 (contract identical to A2A, §3); `to_a2a` export present, HTTP endpoint pending |
 | 2 | MCP server | `app/mcp_server/*` | FastMCP over Stdio, **7** substantive tools incl. CP-SAT, read-only data querying, and declarative cleaning — **5-op CleanOp vocabulary incl. `filter_contains`**, planned at runtime by the wired n7 LLM hook; Solver connects via `McpToolset` + `StdioConnectionParams` (§4) |
-| 3 | Security | `app/mcp_server/safe_ops.py`, `app/schema.py`, prompt guardrails + PII redaction (`app/agent.py`) | Upgraded from the spec's "input sanitization only" to a no-code-execution design: allowlisted query expressions (numexpr), closed declarative op vocabulary, effect validation + strict Pydantic contracts + guardrails + credit-card/SSN redaction callbacks (§8) |
+| 3 | Security | `app/mcp_server/safe_ops.py`, `app/schema.py`, `app/safety.py` (imposed gate + PII redaction), prompt guardrails (`app/agent.py`) | Upgraded from the spec's "input sanitization only" to a no-code-execution design: imposed safety gate before the loop (fail-open), allowlisted query expressions (numexpr), closed declarative op vocabulary, effect validation + strict Pydantic contracts + guardrails + credit-card/SSN redaction callbacks (§8) |
 | 4 | Agent skills / eval (agents-cli) | `tests/eval/datasets/basic-dataset.json`, `tests/eval/eval_config.yaml`, `docs/eval-report.md` | 23 cases scored on `multi_turn_task_success`, `final_response_quality`, `multi_turn_tool_use_quality` via `agents-cli eval generate`/`grade` (Vertex eval service) |
 | 5 | Antigravity | (video) | Development-workflow demonstration; no code artifact required |
 | 6 | Deployability | `Dockerfile`, `.gcloudignore`, `app/fast_api_app.py`, `agents-cli-manifest.yaml` | **Single Cloud Run service** (Concierge with in-process Solver + co-located data pack — supersedes "both agent apps": no A2A HTTP in V1) via `agents-cli deploy -d cloud_run`; the no-code-execution design means no sandbox/privileged machinery is needed in the container (§8) |

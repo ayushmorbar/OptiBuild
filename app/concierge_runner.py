@@ -3,6 +3,10 @@
 Fully pack-driven: the active dataset pack (GAUSS_DATA_DIR, default data/pc-csv)
 supplies the catalog, the completeness policy, and the domain prompt context.
 
+Workflow entry point: an imposed safety gate (app/safety.py, fail-open on
+technical failure) screens every request BEFORE the loop; a refusal returns
+status REFUSED and the loop is never entered.
+
 There is ONE concierge loop (app/concierge.py). GAUSS_FAST_MODELIZATION=1 only
 parametrizes it: one-shot modelization, no LLM judge, max_iterations=1
 (~5x fewer LLM calls; used for cost-bounded runs such as the eval suite).
@@ -22,8 +26,12 @@ def build_catalog_summary() -> str:
     return catalog.build_catalog_summary(metadata)
 
 
-def run(user_request: str) -> dict:
-    """Execute the Concierge loop for a user request in-process."""
+def run(user_request: str, safety_checker=None) -> dict:
+    """Execute the Concierge workflow: imposed safety gate, then the loop.
+
+    `safety_checker(user_request) -> (safe, reason)` may be injected for tests;
+    defaults to the real gate (app/safety.py).
+    """
     import solver_app.agent
     from app.concierge import (
         make_oneshot_modelizer,
@@ -31,9 +39,23 @@ def run(user_request: str) -> dict:
         run_concierge,
     )
     from app.mcp_server import catalog
+    from app.safety import make_safety_checker
     from app.schema import SolverResponse
 
     metadata = catalog.load_metadata()
+
+    # Imposed workflow node: deterministic safety gate, fail-open on technical
+    # failure (see app/safety.py). Runs for every entry point and both modes.
+    if safety_checker is None:
+        safety_checker = make_safety_checker()
+    safe, reason = safety_checker(user_request)
+    if not safe:
+        return {
+            "status": "REFUSED",
+            "questions": [reason or "This request cannot be processed."],
+            "iterations": 0,
+        }
+
     catalog_summary = catalog.build_catalog_summary(metadata)
     domain = catalog.get_domain_context(metadata)
 

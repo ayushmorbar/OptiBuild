@@ -37,17 +37,18 @@ flowchart TB
     START(("START")) --> A["Input: free-form request (chat / adk web / Cloud Run)"]
 
     subgraph ROOT["Concierge root_agent — ADK LlmAgent (app/agent.py)"]
-        B["root_agent (Gemini)<br>PII-redaction callbacks<br>max 1 optimize call / user message"]
-        SG["safety_guard sub-agent<br>(AgentTool + pack safety_notes)"]
+        B["root_agent (Gemini)<br>PII-redaction callbacks<br>maturity check: objective + limit required<br>max 1 optimize call / user message"]
         OPB[["optimize_request tool<br>ONE consolidated NL request string<br>returns lean JSON view (no internal schema)"]]
     end
 
-    A --> B
-    B -- "1 - safety check" --> SG
-    SG -- "SAFE / refusal" --> B
-    B -- "2 - consolidated request" --> OPB
+    SG{"SAFETY GATE — imposed workflow node<br>direct LLM check (app/safety.py + pack safety_notes)<br>run by concierge_runner before the loop, fail-open"}
 
-    subgraph LOOP["Concierge Optimizer Loop — app/concierge.py (max 3 iterations; one-shot fast mode available)"]
+    A --> B
+    B -- "consolidated request" --> OPB
+    OPB --> SG
+    SG -- "REFUSED (iterations 0)" --> B
+
+    subgraph LOOP["Concierge Optimizer Loop — app/concierge.py (ONE loop; fast mode = one-shot modelize, no judge, 1 iteration)"]
         subgraph MODEL["OR Problem Modelization — 4 staged LLM extractions, bounded thinking (app/modelization.py)"]
             C1["1a - DECISION VARIABLES<br>catalog vocabulary + pack required set<br>(injected via DomainContext)"] --> C2["1b - DERIVED VARIABLES<br>restricted formula grammar (no code)"]
             C2 --> D["2 - OBJECTIVES<br>direction + weights + rationale"] --> E["3 - CONSTRAINTS<br>literal / var_ref thresholds"]
@@ -61,7 +62,7 @@ flowchart TB
         ASK["NEEDS_CLARIFICATION<br>targeted questions"]
     end
 
-    OPB --> C1
+    SG -- "safe / gate unavailable" --> C1
     E --> NORM --> F --> EVAL
     EVAL -- "det pass (≥ 0.80)" --> JUDGE
     EVAL -- "below 0.80" --> FB
@@ -170,7 +171,7 @@ flowchart TB
 | Variable | Effect |
 |---|---|
 | `GAUSS_DATA_DIR` | Selects the active dataset pack (default `data/pc-csv`) |
-| `GAUSS_FAST_MODELIZATION=1` | One-shot extraction + deterministic evaluation (~5× fewer LLM calls) |
+| `GAUSS_FAST_MODELIZATION=1` | One-shot modelization, no LLM judge, single iteration of the same concierge loop (~5× fewer LLM calls) |
 | `GAUSS_DYNAMIC_CLEAN=0` | Disables the n7 dynamic-cleaning planner (default: on, fail-open) |
 | `GAUSS_EVAL_ENABLED=1` | Unlocks the admin-only evaluation tooling (`scripts/run_eval.py`) |
 

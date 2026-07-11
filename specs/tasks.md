@@ -187,6 +187,11 @@ prefilter → solve) against `data/pc-csv/` and returns a valid build for a hard
   - [x] A2A client call to Solver (env-flag: same-process for dev, HTTP A2A for dev/demo); convert
         solver `feedback` → `EvaluationFeedback.solver_feedback`.
   - [x] Exit paths: SUCCESS → present build; budget exhausted → targeted user questions from last `feedback_details`.
+  - [x] Unified execution paths: fast mode is parameters of `run_concierge` (one-shot
+        `modelize` adapter, `judge=None`, `max_iterations=1`); `_run_fast` deleted.
+  - [x] Safety gate made structural: deterministic LLM check (`app/safety.py`, fail-open)
+        imposed by `concierge_runner.run()` before the loop; `safety_guard` sub-agent removed;
+        maturity criteria added to the concierge prompt; new `REFUSED` status.
 
 **Done when:** `adk web` (dev wiring): "quiet gaming PC for Cyberpunk 2077 under $1500" produces a
 schema that passes the evaluator ≤3 iterations and returns a presented build end-to-end.
